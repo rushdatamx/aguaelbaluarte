@@ -19,11 +19,11 @@ export default function GPSPage() {
   const { gps, empresa } = data;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">GPS Tiburcio</h1>
+            <h1 className="text-xl md:text-2xl font-semibold text-foreground">GPS Tiburcio</h1>
             <p className="text-muted-foreground text-sm mt-1">
               Ubicacion en tiempo real via PAJ-Portal · {gps.vehiculo}
             </p>
@@ -43,14 +43,14 @@ export default function GPSPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Mapa simulado */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium">Mapa en Vivo</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative bg-neutral-100 rounded-xl overflow-hidden" style={{ height: 420 }}>
+            <div className="relative bg-neutral-100 rounded-xl overflow-hidden h-[280px] md:h-[420px]">
               {/* Mapa estilizado con CSS */}
               <div className="absolute inset-0 bg-gradient-to-br from-sky-50 to-emerald-50">
                 {/* Grid de calles simuladas */}
@@ -70,7 +70,7 @@ export default function GPSPage() {
 
                   {/* Avenida principal */}
                   <line x1="0" y1="200" x2="600" y2="200" stroke="#a1a1aa" strokeWidth="3" />
-                  <text x="10" y="195" fill="#71717a" fontSize="9" fontFamily="sans-serif">Av. Universidad</text>
+                  <text x="10" y="195" fill="#71717a" fontSize="12" fontFamily="sans-serif">Av. Universidad</text>
 
                   {/* Ruta recorrida */}
                   <polyline
@@ -95,14 +95,14 @@ export default function GPSPage() {
                     return (
                       <g key={i}>
                         <circle cx={x} cy={y} r="5" fill="#22c55e" stroke="#fff" strokeWidth="2" />
-                        <text x={x + 8} y={y + 3} fill="#6b7280" fontSize="8" fontFamily="sans-serif">{p.hora}</text>
+                        <text x={x + 8} y={y + 3} fill="#6b7280" fontSize="11" fontFamily="sans-serif">{p.hora}</text>
                       </g>
                     );
                   })}
 
                   {/* Punto de inicio (base) */}
                   <circle cx="80" cy="200" r="7" fill="#6366f1" stroke="#fff" strokeWidth="2" />
-                  <text x="68" y="225" fill="#6366f1" fontSize="9" fontWeight="bold" fontFamily="sans-serif">BASE</text>
+                  <text x="68" y="225" fill="#6366f1" fontSize="12" fontWeight="bold" fontFamily="sans-serif">BASE</text>
 
                   {/* Ubicacion actual (pulso) */}
                   <circle cx="520" cy="185" r="12" fill="#0ea5e9" opacity="0.2">
@@ -127,7 +127,7 @@ export default function GPSPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-lg font-bold text-sky-600">{gps.ubicacion_actual.velocidad_kmh}</div>
-                    <div className="text-[10px] text-muted-foreground">km/h</div>
+                    <div className="text-[11px] text-muted-foreground">km/h</div>
                   </div>
                 </div>
               </div>
@@ -170,22 +170,22 @@ export default function GPSPage() {
                 <div className="bg-muted/50 rounded-lg p-3 text-center">
                   <Route className="h-4 w-4 text-sky-500 mx-auto mb-1" />
                   <div className="text-lg font-bold">{gps.jornada_hoy.km_recorridos}</div>
-                  <div className="text-[10px] text-muted-foreground">km recorridos</div>
+                  <div className="text-[11px] text-muted-foreground">km recorridos</div>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3 text-center">
                   <CircleDot className="h-4 w-4 text-green-500 mx-auto mb-1" />
                   <div className="text-lg font-bold">{gps.jornada_hoy.paradas_realizadas}</div>
-                  <div className="text-[10px] text-muted-foreground">paradas</div>
+                  <div className="text-[11px] text-muted-foreground">paradas</div>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3 text-center">
                   <Gauge className="h-4 w-4 text-amber-500 mx-auto mb-1" />
                   <div className="text-lg font-bold">{gps.jornada_hoy.tiempo_en_ruta}</div>
-                  <div className="text-[10px] text-muted-foreground">en movimiento</div>
+                  <div className="text-[11px] text-muted-foreground">en movimiento</div>
                 </div>
                 <div className="bg-muted/50 rounded-lg p-3 text-center">
                   <Clock className="h-4 w-4 text-neutral-400 mx-auto mb-1" />
                   <div className="text-lg font-bold">{gps.jornada_hoy.tiempo_detenido}</div>
-                  <div className="text-[10px] text-muted-foreground">detenido</div>
+                  <div className="text-[11px] text-muted-foreground">detenido</div>
                 </div>
               </div>
 
@@ -222,7 +222,7 @@ export default function GPSPage() {
                       <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
                       <div>
                         <p className="text-xs font-medium text-amber-800">{alerta.mensaje}</p>
-                        <p className="text-[10px] text-amber-600">{alerta.hora}</p>
+                        <p className="text-[11px] text-amber-600">{alerta.hora}</p>
                       </div>
                     </div>
                   ))}
@@ -251,7 +251,7 @@ export default function GPSPage() {
                   <p className="text-xs font-medium text-muted-foreground mb-2">{diasMap[dia]}</p>
                   <p className="text-lg font-bold">{d.km} <span className="text-xs font-normal text-muted-foreground">km</span></p>
                   <p className="text-xs text-muted-foreground mt-1">{d.paradas} paradas</p>
-                  <p className="text-[10px] text-muted-foreground">{d.salida} — {d.regreso}</p>
+                  <p className="text-[11px] text-muted-foreground">{d.salida} — {d.regreso}</p>
                 </div>
               );
             })}

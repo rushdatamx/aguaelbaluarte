@@ -25,23 +25,23 @@ export default function PurificadoraDashboard() {
     : 0;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">
           {empresa.nombre} · Actualizado: {empresa.fecha_actualizacion}
         </p>
       </div>
 
       {/* KPIs principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Ingresos Hoy</CardTitle>
             <DollarSign className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${kpis.ingresos_hoy.toLocaleString("es-MX")}</div>
+            <div className="text-xl md:text-2xl font-bold">${kpis.ingresos_hoy.toLocaleString("es-MX")}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Semana: ${kpis.ingresos_semana.toLocaleString("es-MX")}
             </p>
@@ -54,7 +54,7 @@ export default function PurificadoraDashboard() {
             <TrendingUp className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${kpis.ingresos_mes.toLocaleString("es-MX")}</div>
+            <div className="text-xl md:text-2xl font-bold">${kpis.ingresos_mes.toLocaleString("es-MX")}</div>
             <div className="flex items-center gap-1 mt-1">
               {kpis.variacion_mes >= 0 ? (
                 <ArrowUpRight className="h-3 w-3 text-green-600" />
@@ -76,7 +76,7 @@ export default function PurificadoraDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-green-600">{kpis.entregas_hoy}</span>
+              <span className="text-xl md:text-2xl font-bold text-green-600">{kpis.entregas_hoy}</span>
               <span className="text-sm text-muted-foreground">/ {kpis.total_ventas_hoy}</span>
             </div>
             <div className="flex items-center gap-1 mt-1">
@@ -92,7 +92,7 @@ export default function PurificadoraDashboard() {
             <Droplets className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{kpis.clientes_activos}</div>
+            <div className="text-xl md:text-2xl font-bold">{kpis.clientes_activos}</div>
             <p className="text-xs text-muted-foreground mt-1">
               de {kpis.total_clientes} registrados
             </p>
@@ -101,7 +101,7 @@ export default function PurificadoraDashboard() {
       </div>
 
       {/* Desglose por producto */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 md:mb-8">
         {Object.entries(kpis.desglose_hoy).map(([id, prod]) => {
           const p = prod as { nombre: string; cantidad: number; unidad: string; monto: number; ventas: number };
           const iconMap: Record<string, React.ReactNode> = {
@@ -127,7 +127,7 @@ export default function PurificadoraDashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         {/* Grafica de ingresos */}
         <Card className="lg:col-span-2">
           <CardHeader>
@@ -209,7 +209,7 @@ export default function PurificadoraDashboard() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium">{venta.cliente_nombre}</p>
-                      <Badge variant="outline" className="text-[9px]">
+                      <Badge variant="outline" className="text-[11px]">
                         {venta.fuente === "tiburcio" ? "WhatsApp" : "Admin"}
                       </Badge>
                     </div>

@@ -1,10 +1,16 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Menu, X } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import type { LucideIcon } from "lucide-react";
 
 interface NavItem {
@@ -20,11 +26,21 @@ interface DemoSidebarProps {
   subtitle: string;
 }
 
-export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
-  const pathname = usePathname();
-
+function SidebarContent({
+  navigation,
+  title,
+  subtitle,
+  pathname,
+  onNavClick,
+}: {
+  navigation: NavItem[];
+  title: string;
+  subtitle: string;
+  pathname: string;
+  onNavClick?: () => void;
+}) {
   return (
-    <aside className="w-60 border-r border-border/50 bg-sidebar backdrop-blur-xl flex flex-col">
+    <>
       {/* Logo */}
       <div className="h-14 flex items-center px-4 border-b border-border">
         <div className="flex items-center gap-2">
@@ -47,8 +63,9 @@ export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavClick}
               className={cn(
-                "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors group",
+                "flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-md text-sm transition-colors group",
                 isActive
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -71,6 +88,60 @@ export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
           <p>{subtitle}</p>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  // Close sheet on navigation
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Find current page name for mobile header
+  const currentPage = navigation.find((item) => item.href === pathname);
+
+  return (
+    <>
+      {/* Mobile header */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 h-14 flex items-center justify-between px-4 bg-background/80 backdrop-blur-xl border-b border-border">
+        <button
+          onClick={() => setOpen(true)}
+          className="h-10 w-10 flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+          aria-label="Abrir menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <span className="text-sm font-semibold">{currentPage?.name ?? title}</span>
+        <div className="w-10" />
+      </header>
+
+      {/* Mobile sheet */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="left" className="w-60 p-0 flex flex-col [&>button]:hidden">
+          <SheetTitle className="sr-only">Menu de navegacion</SheetTitle>
+          <SidebarContent
+            navigation={navigation}
+            title={title}
+            subtitle={subtitle}
+            pathname={pathname}
+            onNavClick={() => setOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-60 border-r border-border/50 bg-sidebar backdrop-blur-xl flex-col">
+        <SidebarContent
+          navigation={navigation}
+          title={title}
+          subtitle={subtitle}
+          pathname={pathname}
+        />
+      </aside>
+    </>
   );
 }

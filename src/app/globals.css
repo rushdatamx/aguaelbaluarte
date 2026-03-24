@@ -157,4 +157,11 @@
     background: oklch(0.18 0.02 270 / 30%);
     border: 1px solid oklch(1 0 0 / 8%);
   }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

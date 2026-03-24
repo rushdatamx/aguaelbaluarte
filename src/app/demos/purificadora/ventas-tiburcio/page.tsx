@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   Camera,
   ImageIcon,
+  Minus,
+  Plus,
 } from "lucide-react";
 import data from "../../../../../public/data/purificadora.json";
 
@@ -62,10 +64,17 @@ export default function VentasTiburcioPage() {
     setCantidades((prev) => ({ ...prev, [productoId]: num }));
   };
 
+  const stepCantidad = (productoId: string, delta: number) => {
+    setCantidades((prev) => ({
+      ...prev,
+      [productoId]: Math.max(0, (prev[productoId] || 0) + delta),
+    }));
+  };
+
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Ventas Tiburcio</h1>
+    <div className="p-4 md:p-6 max-w-xl mx-auto">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas Tiburcio</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Registro de entregas a domicilio · {empresa.nombre}
         </p>
@@ -111,7 +120,7 @@ export default function VentasTiburcioPage() {
                       value={clienteSearch}
                       onChange={(e) => setClienteSearch(e.target.value)}
                       placeholder="Buscar cliente por nombre..."
-                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                      className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                     />
                     {clientesFiltrados.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-10 max-h-48 overflow-auto">
@@ -119,7 +128,7 @@ export default function VentasTiburcioPage() {
                           <button
                             key={c.id}
                             onClick={() => { setClienteId(c.id); setClienteSearch(""); }}
-                            className="w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors"
+                            className="w-full text-left px-3 py-3 md:py-2 hover:bg-muted/50 transition-colors"
                           >
                             <p className="text-sm font-medium">{c.nombre}</p>
                             <p className="text-xs text-muted-foreground">{c.colonia}</p>
@@ -131,10 +140,12 @@ export default function VentasTiburcioPage() {
                 )}
               </div>
 
-              {/* Productos - tabla tipo nota de remision */}
+              {/* Productos - desktop table */}
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Productos</label>
-                <div className="rounded-lg border border-border overflow-hidden">
+
+                {/* Desktop: table grid */}
+                <div className="hidden md:block rounded-lg border border-border overflow-hidden">
                   <div className="grid grid-cols-[1fr_80px_80px_90px] bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground">
                     <span>Descripcion</span>
                     <span className="text-center">Precio</span>
@@ -175,6 +186,51 @@ export default function VentasTiburcioPage() {
                     );
                   })}
                 </div>
+
+                {/* Mobile: product cards with steppers */}
+                <div className="md:hidden space-y-2">
+                  {PRODUCTOS_TIBURCIO.map((p) => {
+                    const cant = cantidades[p.id] || 0;
+                    const importe = cant * p.precio;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`rounded-lg border border-border p-3 transition-colors ${
+                          cant > 0 ? "bg-sky-50/50 border-sky-200" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="text-sm font-medium">{p.nombre}</span>
+                            <span className="text-xs text-muted-foreground ml-1">/{p.unidad}</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">${p.precio}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => stepCantidad(p.id, -1)}
+                              disabled={cant === 0}
+                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors disabled:opacity-30"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="text-lg font-bold w-8 text-center">{cant}</span>
+                            <button
+                              onClick={() => stepCantidad(p.id, 1)}
+                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <span className={`text-sm font-bold ${importe > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>
+                            ${importe.toLocaleString("es-MX")}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Metodo de pago */}
@@ -188,7 +244,7 @@ export default function VentasTiburcioPage() {
                     <button
                       key={m.id}
                       onClick={() => setMetodoPago(m.id)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      className={`flex-1 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors border ${
                         metodoPago === m.id
                           ? "bg-sky-500 text-white border-sky-500"
                           : "bg-background text-muted-foreground border-border hover:border-sky-200"
@@ -211,7 +267,7 @@ export default function VentasTiburcioPage() {
                     <button
                       key={e.id}
                       onClick={() => setEstadoPago(e.id)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      className={`flex-1 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors border ${
                         estadoPago === e.id
                           ? e.id === "pagado"
                             ? "bg-green-500 text-white border-green-500"

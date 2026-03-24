@@ -114,17 +114,17 @@ export default function TodasVentasPage() {
   const hasActiveFilters = filtroPago !== "todos" || filtroEstadoPago !== "todos" || filtroFuente !== "todos";
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Ventas</h1>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Consulta y filtra todas las ventas registradas
         </p>
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <Card className="bg-sky-50 border-sky-100">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 md:mb-6">
+        <Card className="col-span-2 md:col-span-1 bg-sky-50 border-sky-100">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <DollarSign className="h-3.5 w-3.5 text-sky-500" />
@@ -176,22 +176,22 @@ export default function TodasVentasPage() {
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {/* Periodo tabs + search */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex rounded-lg border border-border overflow-hidden">
+              <div className="flex overflow-x-auto scrollbar-hide snap-x w-full sm:w-auto rounded-lg border border-border">
                 {(
                   [
                     { id: "hoy", label: "Hoy" },
-                    { id: "semana", label: "Esta Semana" },
-                    { id: "mes", label: "Este Mes" },
+                    { id: "semana", label: "Semana" },
+                    { id: "mes", label: "Mes" },
                     { id: "todo", label: "Todo" },
                   ] as const
                 ).map((p) => (
                   <button
                     key={p.id}
                     onClick={() => setPeriodo(p.id)}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    className={`min-w-fit snap-start px-4 py-2.5 md:py-2 text-sm font-medium transition-colors ${
                       periodo === p.id
                         ? "bg-sky-500 text-white"
                         : "bg-background text-muted-foreground hover:bg-muted/50"
@@ -207,7 +207,7 @@ export default function TodasVentasPage() {
                   placeholder="Buscar por cliente, producto, #venta..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 h-9"
+                  className="pl-9 h-11 md:h-9"
                 />
               </div>
             </div>
@@ -218,7 +218,7 @@ export default function TodasVentasPage() {
               <select
                 value={filtroPago}
                 onChange={(e) => setFiltroPago(e.target.value)}
-                className="h-8 px-2 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                className="h-11 md:h-8 px-3 md:px-2 rounded-md border border-border bg-background text-sm md:text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               >
                 <option value="todos">Metodo: Todos</option>
                 <option value="efectivo">Efectivo</option>
@@ -228,16 +228,16 @@ export default function TodasVentasPage() {
               <select
                 value={filtroEstadoPago}
                 onChange={(e) => setFiltroEstadoPago(e.target.value)}
-                className="h-8 px-2 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                className="h-11 md:h-8 px-3 md:px-2 rounded-md border border-border bg-background text-sm md:text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               >
-                <option value="todos">Estado Pago: Todos</option>
+                <option value="todos">Estado: Todos</option>
                 <option value="pagado">Pagado</option>
                 <option value="no_pagado">No Pagado</option>
               </select>
               <select
                 value={filtroFuente}
                 onChange={(e) => setFiltroFuente(e.target.value)}
-                className="h-8 px-2 rounded-md border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                className="h-11 md:h-8 px-3 md:px-2 rounded-md border border-border bg-background text-sm md:text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               >
                 <option value="todos">Fuente: Todos</option>
                 <option value="admin">Admin</option>
@@ -259,7 +259,8 @@ export default function TodasVentasPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-auto max-h-[560px]">
+          {/* Desktop: table */}
+          <div className="hidden md:block overflow-auto max-h-[560px]">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -297,7 +298,7 @@ export default function TodasVentasPage() {
                       ${venta.monto_total.toLocaleString("es-MX")}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-[11px]">
                         {venta.metodo_pago === "efectivo"
                           ? "Efectivo"
                           : venta.metodo_pago === "transferencia"
@@ -307,17 +308,17 @@ export default function TodasVentasPage() {
                     </TableCell>
                     <TableCell>
                       {venta.estado_pago === "pagado" ? (
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[10px]">
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[11px]">
                           Pagado
                         </Badge>
                       ) : (
-                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px]">
+                        <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[11px]">
                           No Pagado
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[9px]">
+                      <Badge variant="outline" className="text-[11px]">
                         {venta.fuente === "tiburcio" ? "WhatsApp" : "Admin"}
                       </Badge>
                     </TableCell>
@@ -326,6 +327,58 @@ export default function TodasVentasPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile: card list */}
+          <div className="md:hidden space-y-2 max-h-[560px] overflow-auto">
+            {filtered.slice(0, 100).map((venta) => (
+              <div
+                key={venta.id}
+                className="rounded-lg border border-border/50 p-3 space-y-2"
+              >
+                {/* Top row: name + amount */}
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{venta.cliente_nombre}</p>
+                    <p className="text-xs text-muted-foreground">{venta.producto_nombre}</p>
+                  </div>
+                  <p className="text-sm font-bold ml-2 shrink-0">
+                    ${venta.monto_total.toLocaleString("es-MX")}
+                  </p>
+                </div>
+                {/* Middle: meta */}
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="font-mono">#{venta.numero_venta}</span>
+                  <span>·</span>
+                  <span>{venta.fecha_ruta}</span>
+                  <span>·</span>
+                  <span>{venta.cantidad} {venta.unidad}</span>
+                </div>
+                {/* Bottom: badges */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge variant="outline" className="text-[11px]">
+                    {venta.metodo_pago === "efectivo"
+                      ? "Efectivo"
+                      : venta.metodo_pago === "transferencia"
+                        ? "Transfer."
+                        : "Credito"}
+                  </Badge>
+                  {venta.estado_pago === "pagado" ? (
+                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 text-[11px]">
+                      Pagado
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[11px]">
+                      No Pagado
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="text-[11px]">
+                    {venta.fuente === "tiburcio" ? "WhatsApp" : "Admin"}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {filtered.length > 100 && (
             <p className="text-xs text-muted-foreground text-center mt-4">
               Mostrando 100 de {filtered.length} resultados. Usa los filtros para refinar.

@@ -19,7 +19,7 @@ interface IngresosChartProps {
 
 export function IngresosChart({ data }: IngresosChartProps) {
   return (
-    <div style={{ width: "100%", height: 280 }}>
+    <div className="w-full h-[200px] md:h-[280px]">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}

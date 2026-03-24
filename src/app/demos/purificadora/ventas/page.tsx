@@ -8,6 +8,8 @@ import {
   Camera,
   ImageIcon,
   Gauge,
+  Minus,
+  Plus,
 } from "lucide-react";
 import data from "../../../../../public/data/purificadora.json";
 
@@ -64,10 +66,17 @@ export default function VentasFisicoPage() {
     setCantidades((prev) => ({ ...prev, [productoId]: num }));
   };
 
+  const stepCantidad = (productoId: string, delta: number) => {
+    setCantidades((prev) => ({
+      ...prev,
+      [productoId]: Math.max(0, (prev[productoId] || 0) + delta),
+    }));
+  };
+
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Ventas Fisico</h1>
+    <div className="p-4 md:p-6 max-w-xl mx-auto">
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas Fisico</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Registro de ventas en punto de venta · {empresa.nombre}
         </p>
@@ -101,7 +110,7 @@ export default function VentasFisicoPage() {
                     <button
                       key={t.id}
                       onClick={() => setTurno(t.id)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      className={`flex-1 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors border ${
                         turno === t.id
                           ? "bg-sky-500 text-white border-sky-500"
                           : "bg-background text-muted-foreground border-border hover:border-sky-200"
@@ -113,10 +122,12 @@ export default function VentasFisicoPage() {
                 </div>
               </div>
 
-              {/* Productos - tabla tipo nota de remision */}
+              {/* Productos */}
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Productos</label>
-                <div className="rounded-lg border border-border overflow-hidden">
+
+                {/* Desktop: table grid */}
+                <div className="hidden md:block rounded-lg border border-border overflow-hidden">
                   <div className="grid grid-cols-[1fr_80px_80px_90px] bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground">
                     <span>Descripcion</span>
                     <span className="text-center">Precio</span>
@@ -157,6 +168,51 @@ export default function VentasFisicoPage() {
                     );
                   })}
                 </div>
+
+                {/* Mobile: product cards with steppers */}
+                <div className="md:hidden space-y-2">
+                  {PRODUCTOS_FISICO.map((p) => {
+                    const cant = cantidades[p.id] || 0;
+                    const importe = cant * p.precio;
+                    return (
+                      <div
+                        key={p.id}
+                        className={`rounded-lg border border-border p-3 transition-colors ${
+                          cant > 0 ? "bg-sky-50/50 border-sky-200" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="text-sm font-medium">{p.nombre}</span>
+                            <span className="text-xs text-muted-foreground ml-1">/{p.unidad}</span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">${p.precio}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => stepCantidad(p.id, -1)}
+                              disabled={cant === 0}
+                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors disabled:opacity-30"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <span className="text-lg font-bold w-8 text-center">{cant}</span>
+                            <button
+                              onClick={() => stepCantidad(p.id, 1)}
+                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <span className={`text-sm font-bold ${importe > 0 ? "text-foreground" : "text-muted-foreground/40"}`}>
+                            ${importe.toLocaleString("es-MX")}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Cuentalitros */}
@@ -175,12 +231,12 @@ export default function VentasFisicoPage() {
                         value={lecturaInicial}
                         onChange={(e) => setLecturaInicial(e.target.value)}
                         placeholder="0"
-                        className="w-full h-9 text-center rounded-md border border-border bg-background text-lg font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full h-11 md:h-9 text-center rounded-md border border-border bg-background text-lg font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
                     <div className="bg-background p-3">
                       <span className="text-xs text-muted-foreground block mb-1">Lectura Final</span>
-                      <div className="w-full h-9 flex items-center justify-center rounded-md bg-muted/50 text-lg font-bold text-sky-600">
+                      <div className="w-full h-11 md:h-9 flex items-center justify-center rounded-md bg-muted/50 text-lg font-bold text-sky-600">
                         {lecturaFinal > 0 ? lecturaFinal.toLocaleString("es-MX") : "—"}
                       </div>
                     </div>
@@ -204,7 +260,7 @@ export default function VentasFisicoPage() {
                     <button
                       key={m.id}
                       onClick={() => setMetodoPago(m.id)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      className={`flex-1 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors border ${
                         metodoPago === m.id
                           ? "bg-sky-500 text-white border-sky-500"
                           : "bg-background text-muted-foreground border-border hover:border-sky-200"
@@ -227,7 +283,7 @@ export default function VentasFisicoPage() {
                     <button
                       key={e.id}
                       onClick={() => setEstadoPago(e.id)}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                      className={`flex-1 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors border ${
                         estadoPago === e.id
                           ? e.id === "pagado"
                             ? "bg-green-500 text-white border-green-500"
