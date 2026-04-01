@@ -241,7 +241,7 @@ export default function TodasVentasPage() {
               >
                 <option value="todos">Fuente: Todos</option>
                 <option value="admin">Admin</option>
-                <option value="tiburcio">WhatsApp</option>
+                <option value="domicilio">WhatsApp</option>
               </select>
               {hasActiveFilters && (
                 <button
@@ -319,7 +319,7 @@ export default function TodasVentasPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[11px]">
-                        {venta.fuente === "tiburcio" ? "WhatsApp" : "Admin"}
+                        {venta.fuente === "domicilio" ? "WhatsApp" : "Admin"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -372,7 +372,7 @@ export default function TodasVentasPage() {
                     </Badge>
                   )}
                   <Badge variant="outline" className="text-[11px]">
-                    {venta.fuente === "tiburcio" ? "WhatsApp" : "Admin"}
+                    {venta.fuente === "domicilio" ? "WhatsApp" : "Admin"}
                   </Badge>
                 </div>
               </div>

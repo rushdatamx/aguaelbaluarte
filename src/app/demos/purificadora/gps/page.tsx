@@ -23,7 +23,7 @@ export default function GPSPage() {
       <div className="mb-6 md:mb-8">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-xl md:text-2xl font-semibold text-foreground">GPS Tiburcio</h1>
+            <h1 className="text-xl md:text-2xl font-semibold text-foreground">GPS Domicilio</h1>
             <p className="text-muted-foreground text-sm mt-1">
               Ubicacion en tiempo real via PAJ-Portal · {gps.vehiculo}
             </p>

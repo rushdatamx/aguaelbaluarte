@@ -210,7 +210,7 @@ export default function PurificadoraDashboard() {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium">{venta.cliente_nombre}</p>
                       <Badge variant="outline" className="text-[11px]">
-                        {venta.fuente === "tiburcio" ? "WhatsApp" : "Admin"}
+                        {venta.fuente === "domicilio" ? "WhatsApp" : "Admin"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">

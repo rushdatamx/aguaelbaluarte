@@ -12,19 +12,19 @@ import {
 } from "lucide-react";
 import data from "../../../../../public/data/purificadora.json";
 
-const PRODUCTOS_TIBURCIO = [
+const PRODUCTOS_DOMICILIO = [
   { id: "llenado_garrafon_20l", nombre: "Llenado Garrafon 20L", precio: 25, unidad: "pza" },
   { id: "garrafon_20l", nombre: "Garrafon 20L", precio: 110, unidad: "pza" },
   { id: "botella_1l", nombre: "Botella 1L", precio: 9, unidad: "pza" },
   { id: "botella_500ml", nombre: "Botella 500ml", precio: 6, unidad: "pza" },
 ];
 
-export default function VentasTiburcioPage() {
+export default function VentasDomicilioPage() {
   const { clientes, empresa } = data;
 
   const [clienteId, setClienteId] = useState("");
   const [cantidades, setCantidades] = useState<Record<string, number>>(
-    () => Object.fromEntries(PRODUCTOS_TIBURCIO.map((p) => [p.id, 0]))
+    () => Object.fromEntries(PRODUCTOS_DOMICILIO.map((p) => [p.id, 0]))
   );
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [clienteSearch, setClienteSearch] = useState("");
@@ -32,7 +32,7 @@ export default function VentasTiburcioPage() {
   const [evidencia, setEvidencia] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const montoTotal = PRODUCTOS_TIBURCIO.reduce(
+  const montoTotal = PRODUCTOS_DOMICILIO.reduce(
     (sum, p) => sum + (cantidades[p.id] || 0) * p.precio,
     0
   );
@@ -51,7 +51,7 @@ export default function VentasTiburcioPage() {
       setShowSuccess(false);
       setClienteId("");
       setClienteSearch("");
-      setCantidades(Object.fromEntries(PRODUCTOS_TIBURCIO.map((p) => [p.id, 0])));
+      setCantidades(Object.fromEntries(PRODUCTOS_DOMICILIO.map((p) => [p.id, 0])));
       setEstadoPago("pagado");
       setEvidencia(null);
     }, 2000);
@@ -74,7 +74,7 @@ export default function VentasTiburcioPage() {
   return (
     <div className="p-4 md:p-6 max-w-xl mx-auto">
       <div className="mb-6 md:mb-8">
-        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas Tiburcio</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas Domicilio</h1>
         <p className="text-muted-foreground text-sm mt-1">
           Registro de entregas a domicilio · {empresa.nombre}
         </p>
@@ -152,7 +152,7 @@ export default function VentasTiburcioPage() {
                     <span className="text-center">Cantidad</span>
                     <span className="text-right">Importe</span>
                   </div>
-                  {PRODUCTOS_TIBURCIO.map((p) => {
+                  {PRODUCTOS_DOMICILIO.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
                     return (
@@ -189,7 +189,7 @@ export default function VentasTiburcioPage() {
 
                 {/* Mobile: product cards with steppers */}
                 <div className="md:hidden space-y-2">
-                  {PRODUCTOS_TIBURCIO.map((p) => {
+                  {PRODUCTOS_DOMICILIO.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
                     return (

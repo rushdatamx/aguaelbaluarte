@@ -18,8 +18,8 @@ const navigation = [
     description: "KPIs e ingresos del dia",
   },
   {
-    name: "Ventas Tiburcio",
-    href: "/demos/purificadora/ventas-tiburcio",
+    name: "Ventas Domicilio",
+    href: "/demos/purificadora/ventas-domicilio",
     icon: Truck,
     description: "Entregas a domicilio",
   },
@@ -36,7 +36,7 @@ const navigation = [
     description: "Consulta y filtra ventas",
   },
   {
-    name: "GPS Tiburcio",
+    name: "GPS Domicilio",
     href: "/demos/purificadora/gps",
     icon: MapPin,
     description: "Ubicacion en tiempo real",

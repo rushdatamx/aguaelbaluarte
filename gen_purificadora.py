@@ -1,10 +1,10 @@
 """
 Generador de datos mock para Demo 10: Purificadora El Baluarte
 Sistema de Gestion de Entregas — purificadora de agua con ~30 entregas/dia,
-un repartidor (Tiburcio), y un dueno basico en tech.
+un repartidor, y un dueno basico en tech.
 
 Productos: Garrafon 20L, Botella 1L, Botella 500ml, Cuentalitros
-Fuentes de registro: admin (administradora), tiburcio (reporte WhatsApp)
+Fuentes de registro: admin (administradora), domicilio (reporte WhatsApp)
 """
 import json
 import random
@@ -153,7 +153,7 @@ for dia_offset in range(58):
         ruta = "manana" if hora >= 15 else "tarde"
         fecha_ruta = fecha + timedelta(days=1) if hora >= 15 else fecha
         estado = random.choices(["entregado", "cancelado"], weights=[95, 5])[0]
-        fuente = random.choices(["admin", "tiburcio"], weights=[60, 40])[0]
+        fuente = random.choices(["admin", "domicilio"], weights=[60, 40])[0]
 
         venta = make_venta(numero_venta, cliente, producto, cantidad, estado, ruta, fecha, fecha_ruta, hora, fuente)
         ventas.append(venta)
@@ -178,7 +178,7 @@ for _ in range(30):
     hora = random.randint(0, 23)
     ruta = "manana" if hora >= 15 else "tarde"
     fecha_ruta = ayer + timedelta(days=1) if hora >= 15 else ayer
-    fuente = random.choices(["admin", "tiburcio"], weights=[55, 45])[0]
+    fuente = random.choices(["admin", "domicilio"], weights=[55, 45])[0]
 
     venta = make_venta(numero_venta, cliente, producto, cantidad, "entregado", ruta, ayer, fecha_ruta, hora, fuente)
     ventas.append(venta)
@@ -201,7 +201,7 @@ clientes_manana = random.sample(clientes, 15)
 for cliente, estado in zip(clientes_manana, ruta_manana_estados):
     producto, cantidad = pick_producto()
     numero_venta += 1
-    fuente = "tiburcio" if estado == "entregado" else "admin"
+    fuente = "domicilio" if estado == "entregado" else "admin"
     venta = make_venta(numero_venta, cliente, producto, cantidad, estado, "manana", ayer, HOY, random.randint(15, 22), fuente)
     ventas.append(venta)
     if estado == "entregado":
@@ -363,7 +363,7 @@ ventas_ruta_tarde = sorted(
 )
 
 # --- GPS Mock Data (simulacion de PAJ-Portal API) ---
-# Ruta de Tiburcio hoy: salio a las 9:45am de la purificadora, son las ~11:30am
+# Ruta de domicilio hoy: salio a las 9:45am de la purificadora, son las ~11:30am
 BASE_LAT = 25.6866  # Monterrey centro
 BASE_LNG = -100.3161
 
@@ -426,7 +426,7 @@ gps_data = {
 output = {
     "empresa": {
         "nombre": "Purificadora El Baluarte",
-        "repartidor": "Tiburcio",
+        "repartidor": "Repartidor",
         "productos": PRODUCTOS,
         "fecha_actualizacion": HOY.strftime("%Y-%m-%d %H:%M"),
     },
