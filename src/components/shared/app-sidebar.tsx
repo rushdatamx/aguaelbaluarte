@@ -23,13 +23,14 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/providers/auth-provider";
 import type { LucideIcon } from "lucide-react";
+import type { UserRole } from "@/lib/types";
 
 interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
   description: string;
-  adminOnly?: boolean;
+  roles: UserRole[];
 }
 
 const navigation: NavItem[] = [
@@ -38,32 +39,35 @@ const navigation: NavItem[] = [
     href: "/",
     icon: LayoutDashboard,
     description: "KPIs e ingresos del dia",
-    adminOnly: true,
+    roles: ["admin"],
   },
   {
     name: "Ventas Domicilio",
     href: "/ventas-domicilio",
     icon: Truck,
     description: "Entregas a domicilio",
+    roles: ["admin", "vendedor_domicilio"],
   },
   {
     name: "Ventas Fisico",
     href: "/ventas",
     icon: ShoppingCart,
     description: "Ventas en punto de venta",
+    roles: ["admin", "vendedor_fisico"],
   },
   {
     name: "Ventas",
     href: "/todas-ventas",
     icon: ClipboardList,
     description: "Consulta y filtra ventas",
-    adminOnly: true,
+    roles: ["admin"],
   },
   {
     name: "Clientes",
     href: "/clientes",
     icon: Users,
     description: "Base de clientes",
+    roles: ["admin", "vendedor_fisico", "vendedor_domicilio"],
   },
 ];
 
@@ -78,12 +82,12 @@ function SidebarContent({
   navigation: NavItem[];
   pathname: string;
   userName: string;
-  userRole: string;
+  userRole: UserRole;
   onNavClick?: () => void;
   onLogout: () => void;
 }) {
-  const visibleNav = navigation.filter(
-    (item) => !item.adminOnly || userRole === "admin"
+  const visibleNav = navigation.filter((item) =>
+    item.roles.includes(userRole)
   );
 
   return (
@@ -165,9 +169,7 @@ export function AppSidebar() {
   };
 
   // Find current page name for mobile header
-  const visibleNav = navigation.filter(
-    (item) => !item.adminOnly || role === "admin"
-  );
+  const visibleNav = navigation.filter((item) => item.roles.includes(role));
   const currentPage = visibleNav.find((item) => item.href === pathname);
 
   return (

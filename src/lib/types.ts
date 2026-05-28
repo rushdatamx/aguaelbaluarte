@@ -74,10 +74,12 @@ export interface VentaConDetalles extends VentaRow {
   }[];
 }
 
+export type UserRole = "admin" | "vendedor_fisico" | "vendedor_domicilio";
+
 export interface UserProfile {
   id: string;
   nombre: string;
-  role: "admin" | "vendedor";
+  role: UserRole;
   activo: boolean;
 }
 

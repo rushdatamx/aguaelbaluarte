@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/shared/app-sidebar";
 import { AuthProvider } from "@/components/providers/auth-provider";
-import type { UserProfile } from "@/lib/types";
+import type { UserProfile, UserRole } from "@/lib/types";
 
 export default async function AppLayout({
   children,
@@ -33,7 +33,7 @@ export default async function AppLayout({
   const userProfile: UserProfile = {
     id: profile.id,
     nombre: profile.nombre,
-    role: profile.role as "admin" | "vendedor",
+    role: profile.role as UserRole,
     activo: profile.activo,
   };
 

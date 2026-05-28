@@ -1,5 +1,7 @@
 import { VentasList } from "@/components/purificadora/ventas-list";
+import { requireRole } from "@/lib/auth";
 
-export default function TodasVentasPage() {
+export default async function TodasVentasPage() {
+  await requireRole(["admin"]);
   return <VentasList />;
 }

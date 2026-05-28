@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { FormDomicilio } from "@/components/purificadora/form-domicilio";
+import { requireRole } from "@/lib/auth";
 import type { Producto } from "@/lib/types";
 
 export default async function VentasDomicilioPage() {
+  await requireRole(["admin", "vendedor_domicilio"]);
   const supabase = await createClient();
 
   const { data: productos } = await supabase

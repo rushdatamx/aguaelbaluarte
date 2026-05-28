@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { requireRole } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,24 +23,8 @@ import type {
 } from "@/lib/types";
 
 export default async function DashboardPage() {
+  await requireRole(["admin"]);
   const supabase = await createClient();
-
-  // Check role — vendedores can't access dashboard
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.role === "vendedor") {
-      redirect("/ventas-domicilio");
-    }
-  }
 
   // Fetch KPIs
   const { data: kpisData } = await supabase
