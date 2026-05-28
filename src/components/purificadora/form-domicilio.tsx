@@ -1,118 +1,127 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  ShoppingCart,
+  Truck,
   CheckCircle2,
   Camera,
   ImageIcon,
-  Gauge,
   Minus,
   Plus,
-  AlertTriangle,
 } from "lucide-react";
-import data from "../../../../../public/data/purificadora.json";
+import { registrarVenta } from "@/lib/actions/ventas";
+import { buscarClientes } from "@/lib/actions/clientes";
+import type { Producto } from "@/lib/types";
 
-const PRODUCTOS_FISICO = [
-  { id: "llenado_garrafon_20l", nombre: "Llenado Garrafon 20L", precio: 20, unidad: "pza", litrosPorUnidad: 20 },
-  { id: "llenado_garrafon_4_10l", nombre: "Llenado Garrafon 4-10L", precio: 10, unidad: "litro", litrosPorUnidad: 1 },
-  { id: "garrafon_20l", nombre: "Garrafon 20L", precio: 110, unidad: "pza", litrosPorUnidad: 20 },
-  { id: "botella_1l", nombre: "Botella 1L", precio: 10, unidad: "pza", litrosPorUnidad: 1 },
-];
+interface FormDomicilioProps {
+  productos: Producto[];
+}
 
-export default function VentasFisicoPage() {
-  const { empresa } = data;
-
-  const [turno, setTurno] = useState("matutino");
+export function FormDomicilio({ productos }: FormDomicilioProps) {
+  const [clienteId, setClienteId] = useState("");
+  const [clienteNombre, setClienteNombre] = useState("");
+  const [clienteDireccion, setClienteDireccion] = useState("");
   const [cantidades, setCantidades] = useState<Record<string, number>>(
-    () => Object.fromEntries(PRODUCTOS_FISICO.map((p) => [p.id, 0]))
+    () => Object.fromEntries(productos.map((p) => [p.id, 0]))
   );
-  const [lecturaInicial, setLecturaInicial] = useState("");
-  const [lecturaFinal, setLecturaFinal] = useState("");
   const [metodoPago, setMetodoPago] = useState("efectivo");
+  const [clienteSearch, setClienteSearch] = useState("");
   const [estadoPago, setEstadoPago] = useState("pagado");
   const [evidencia, setEvidencia] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [clientesFiltrados, setClientesFiltrados] = useState<
+    { id: string; nombre: string; direccion: string | null; colonia: string | null }[]
+  >([]);
+  const [isPending, startTransition] = useTransition();
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  const montoTotal = PRODUCTOS_FISICO.reduce(
+  const montoTotal = productos.reduce(
     (sum, p) => sum + (cantidades[p.id] || 0) * p.precio,
     0
   );
 
-  const lecturaInicialNum = parseInt(lecturaInicial) || 0;
-  const lecturaFinalNum = parseInt(lecturaFinal) || 0;
-  const litrosDisponibles = lecturaFinalNum > lecturaInicialNum ? lecturaFinalNum - lecturaInicialNum : 0;
-
-  const litrosUsados = useMemo(() => {
-    return PRODUCTOS_FISICO.reduce(
-      (sum, p) => sum + (cantidades[p.id] || 0) * p.litrosPorUnidad,
-      0
-    );
-  }, [cantidades]);
-
-  const litrosRestantes = litrosDisponibles - litrosUsados;
-  const excedeLitros = litrosUsados > litrosDisponibles && litrosDisponibles > 0;
-  const tieneCuentalitros = lecturaInicialNum > 0 && lecturaFinalNum > lecturaInicialNum;
-
   const tieneProductos = Object.values(cantidades).some((c) => c > 0);
 
-  const puedeAgregarProducto = (productoId: string) => {
-    if (!tieneCuentalitros) return true;
-    const producto = PRODUCTOS_FISICO.find((p) => p.id === productoId);
-    if (!producto) return false;
-    return litrosRestantes >= producto.litrosPorUnidad;
+  const handleSearchChange = (value: string) => {
+    setClienteSearch(value);
+    if (searchTimeout) clearTimeout(searchTimeout);
+    if (value.length < 2) {
+      setClientesFiltrados([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const results = await buscarClientes(value);
+      setClientesFiltrados(results);
+    }, 300);
+    setSearchTimeout(timeout);
   };
 
   const handleRegistrar = () => {
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      setCantidades(Object.fromEntries(PRODUCTOS_FISICO.map((p) => [p.id, 0])));
-      setLecturaInicial("");
-      setLecturaFinal("");
-      setEstadoPago("pagado");
-      setEvidencia(null);
-    }, 2000);
+    const items = productos
+      .filter((p) => (cantidades[p.id] || 0) > 0)
+      .map((p) => ({
+        producto_id: p.id,
+        cantidad: cantidades[p.id],
+        precio_unitario: p.precio,
+      }));
+
+    startTransition(async () => {
+      const result = await registrarVenta({
+        cliente_id: clienteId,
+        fuente: "domicilio",
+        estado: "pendiente",
+        estado_pago: estadoPago as "pagado" | "no_pagado",
+        metodo_pago: metodoPago as "efectivo" | "transferencia",
+        evidencia_url: evidencia,
+        items,
+      });
+
+      if (result.error) {
+        alert("Error: " + result.error);
+        return;
+      }
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setClienteId("");
+        setClienteNombre("");
+        setClienteDireccion("");
+        setClienteSearch("");
+        setCantidades(Object.fromEntries(productos.map((p) => [p.id, 0])));
+        setEstadoPago("pagado");
+        setEvidencia(null);
+      }, 2000);
+    });
   };
 
   const updateCantidad = (productoId: string, value: string) => {
     const num = value === "" ? 0 : Math.max(0, parseInt(value) || 0);
-    const producto = PRODUCTOS_FISICO.find((p) => p.id === productoId)!;
-    const litrosSinEste = litrosUsados - (cantidades[productoId] || 0) * producto.litrosPorUnidad;
-    const litrosConNuevo = litrosSinEste + num * producto.litrosPorUnidad;
-
-    if (tieneCuentalitros && litrosConNuevo > litrosDisponibles) return;
     setCantidades((prev) => ({ ...prev, [productoId]: num }));
   };
 
   const stepCantidad = (productoId: string, delta: number) => {
-    const producto = PRODUCTOS_FISICO.find((p) => p.id === productoId)!;
-    const newCant = Math.max(0, (cantidades[productoId] || 0) + delta);
-    const litrosSinEste = litrosUsados - (cantidades[productoId] || 0) * producto.litrosPorUnidad;
-    const litrosConNuevo = litrosSinEste + newCant * producto.litrosPorUnidad;
-
-    if (tieneCuentalitros && litrosConNuevo > litrosDisponibles) return;
     setCantidades((prev) => ({
       ...prev,
-      [productoId]: newCant,
+      [productoId]: Math.max(0, (prev[productoId] || 0) + delta),
     }));
   };
 
   return (
     <div className="p-4 md:p-6 max-w-xl mx-auto">
       <div className="mb-6 md:mb-8">
-        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas Fisico</h1>
+        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas Domicilio</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Registro de ventas en punto de venta · {empresa.nombre}
+          Registro de entregas a domicilio
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base font-medium flex items-center gap-2">
-            <ShoppingCart className="h-4 w-4 text-sky-500" />
-            Nueva Venta
+            <Truck className="h-4 w-4 text-sky-500" />
+            Nueva Entrega
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -121,127 +130,90 @@ export default function VentasFisicoPage() {
               <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-3">
                 <CheckCircle2 className="h-8 w-8 text-green-500" />
               </div>
-              <p className="text-sm font-medium text-green-700">Venta registrada</p>
+              <p className="text-sm font-medium text-green-700">Entrega registrada</p>
             </div>
           ) : (
             <>
-              {/* Turno */}
+              {/* Cliente */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
-                <div className="flex gap-2">
-                  {[
-                    { id: "matutino", label: "Matutino" },
-                    { id: "vespertino", label: "Vespertino" },
-                  ].map((t) => (
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Cliente</label>
+                {clienteId ? (
+                  <div className="flex items-center justify-between p-3 bg-sky-50 rounded-lg border border-sky-100">
+                    <div>
+                      <p className="text-sm font-medium">{clienteNombre}</p>
+                      <p className="text-xs text-muted-foreground">{clienteDireccion}</p>
+                    </div>
                     <button
-                      key={t.id}
-                      onClick={() => setTurno(t.id)}
-                      className={`flex-1 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors border ${
-                        turno === t.id
-                          ? "bg-sky-500 text-white border-sky-500"
-                          : "bg-background text-muted-foreground border-border hover:border-sky-200"
-                      }`}
+                      onClick={() => {
+                        setClienteId("");
+                        setClienteNombre("");
+                        setClienteDireccion("");
+                        setClienteSearch("");
+                      }}
+                      className="text-xs text-sky-600 hover:text-sky-700"
                     >
-                      {t.label}
+                      Cambiar
                     </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Cuentalitros — ahora PRIMERO, ambas lecturas manuales */}
-              <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block flex items-center gap-2">
-                  <Gauge className="h-4 w-4 text-sky-500" />
-                  Cuentalitros
-                </label>
-                <div className="rounded-lg border border-border overflow-hidden">
-                  <div className="grid grid-cols-2 gap-px bg-border">
-                    <div className="bg-background p-3">
-                      <span className="text-xs text-muted-foreground block mb-1">Lectura Inicial</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={lecturaInicial}
-                        onChange={(e) => setLecturaInicial(e.target.value)}
-                        placeholder="0"
-                        className="w-full h-11 md:h-9 text-center rounded-md border border-border bg-background text-lg font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                    <div className="bg-background p-3">
-                      <span className="text-xs text-muted-foreground block mb-1">Lectura Final</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={lecturaFinal}
-                        onChange={(e) => setLecturaFinal(e.target.value)}
-                        placeholder="0"
-                        className="w-full h-11 md:h-9 text-center rounded-md border border-border bg-background text-lg font-bold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
                   </div>
-                  <div className="border-t border-border px-3 py-2 bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">Litros disponibles</span>
-                      <span className="text-sm font-bold text-sky-600">
-                        {litrosDisponibles > 0 ? `${litrosDisponibles.toLocaleString("es-MX")} L` : "—"}
-                      </span>
-                    </div>
-                    {tieneCuentalitros && tieneProductos && (
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">Litros restantes</span>
-                        <span className={`text-sm font-bold ${litrosRestantes > 0 ? "text-green-600" : litrosRestantes === 0 ? "text-amber-600" : "text-red-600"}`}>
-                          {litrosRestantes.toLocaleString("es-MX")} L
-                        </span>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={clienteSearch}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      placeholder="Buscar cliente por nombre..."
+                      className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                    />
+                    {clientesFiltrados.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-10 max-h-48 overflow-auto">
+                        {clientesFiltrados.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              setClienteId(c.id);
+                              setClienteNombre(c.nombre);
+                              setClienteDireccion(c.direccion || c.colonia || "");
+                              setClienteSearch("");
+                              setClientesFiltrados([]);
+                            }}
+                            className="w-full text-left px-3 py-3 md:py-2 hover:bg-muted/50 transition-colors"
+                          >
+                            <p className="text-sm font-medium">{c.nombre}</p>
+                            <p className="text-xs text-muted-foreground">{c.colonia}</p>
+                          </button>
+                        ))}
                       </div>
                     )}
-                  </div>
-                </div>
-                {excedeLitros && (
-                  <div className="flex items-center gap-1.5 mt-2 text-red-600">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span className="text-xs">Los litros de los productos exceden el cuentalitros</span>
                   </div>
                 )}
               </div>
 
-              {/* Productos */}
+              {/* Productos - desktop table */}
               <div>
-                <label className="text-sm font-medium text-foreground mb-1.5 block">
-                  Productos
-                  {tieneCuentalitros && (
-                    <span className="text-xs text-muted-foreground font-normal ml-2">
-                      ({litrosUsados}/{litrosDisponibles} L asignados)
-                    </span>
-                  )}
-                </label>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Productos</label>
 
                 {/* Desktop: table grid */}
                 <div className="hidden md:block rounded-lg border border-border overflow-hidden">
-                  <div className="grid grid-cols-[1fr_60px_80px_80px_90px] bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <div className="grid grid-cols-[1fr_80px_80px_90px] bg-muted/60 px-3 py-2 text-xs font-medium text-muted-foreground">
                     <span>Descripcion</span>
-                    <span className="text-center">Litros</span>
                     <span className="text-center">Precio</span>
                     <span className="text-center">Cantidad</span>
                     <span className="text-right">Importe</span>
                   </div>
-                  {PRODUCTOS_FISICO.map((p) => {
+                  {productos.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
-                    const bloqueado = tieneCuentalitros && !puedeAgregarProducto(p.id) && cant === 0;
                     return (
                       <div
                         key={p.id}
-                        className={`grid grid-cols-[1fr_60px_80px_80px_90px] items-center px-3 py-2.5 border-t border-border/50 transition-colors ${
+                        className={`grid grid-cols-[1fr_80px_80px_90px] items-center px-3 py-2.5 border-t border-border/50 transition-colors ${
                           cant > 0 ? "bg-sky-50/50" : ""
-                        } ${bloqueado ? "opacity-40" : ""}`}
+                        }`}
                       >
                         <div>
                           <span className="text-sm font-medium">{p.nombre}</span>
                           <span className="text-xs text-muted-foreground ml-1">/{p.unidad}</span>
                         </div>
-                        <span className="text-xs text-center text-muted-foreground">
-                          {p.litrosPorUnidad}L
-                        </span>
                         <span className="text-sm text-center text-muted-foreground">
                           ${p.precio}
                         </span>
@@ -265,22 +237,20 @@ export default function VentasFisicoPage() {
 
                 {/* Mobile: product cards with steppers */}
                 <div className="md:hidden space-y-2">
-                  {PRODUCTOS_FISICO.map((p) => {
+                  {productos.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
-                    const bloqueado = tieneCuentalitros && !puedeAgregarProducto(p.id) && cant === 0;
                     return (
                       <div
                         key={p.id}
                         className={`rounded-lg border border-border p-3 transition-colors ${
                           cant > 0 ? "bg-sky-50/50 border-sky-200" : ""
-                        } ${bloqueado ? "opacity-40" : ""}`}
+                        }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div>
                             <span className="text-sm font-medium">{p.nombre}</span>
                             <span className="text-xs text-muted-foreground ml-1">/{p.unidad}</span>
-                            <span className="text-xs text-muted-foreground ml-1">· {p.litrosPorUnidad}L</span>
                           </div>
                           <span className="text-sm text-muted-foreground">${p.precio}</span>
                         </div>
@@ -296,8 +266,7 @@ export default function VentasFisicoPage() {
                             <span className="text-lg font-bold w-8 text-center">{cant}</span>
                             <button
                               onClick={() => stepCantidad(p.id, 1)}
-                              disabled={bloqueado || (tieneCuentalitros && !puedeAgregarProducto(p.id))}
-                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-30 disabled:hover:bg-sky-50"
+                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors"
                             >
                               <Plus className="h-4 w-4" />
                             </button>
@@ -319,7 +288,6 @@ export default function VentasFisicoPage() {
                   {[
                     { id: "efectivo", label: "Efectivo" },
                     { id: "transferencia", label: "Transferencia" },
-                    { id: "credito", label: "Credito" },
                   ].map((m) => (
                     <button
                       key={m.id}
@@ -403,10 +371,10 @@ export default function VentasFisicoPage() {
               {/* Boton registrar */}
               <button
                 onClick={handleRegistrar}
-                disabled={!tieneProductos || excedeLitros}
+                disabled={!clienteId || !tieneProductos || isPending}
                 className="w-full py-3 bg-sky-500 text-white rounded-lg text-sm font-bold hover:bg-sky-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Registrar Venta
+                {isPending ? "Registrando..." : "Registrar Entrega"}
               </button>
             </>
           )}

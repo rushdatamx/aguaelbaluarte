@@ -3,14 +3,16 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Menu, X } from "lucide-react";
+import { ChevronRight, Menu, LogOut } from "lucide-react";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/components/providers/auth-provider";
 import type { LucideIcon } from "lucide-react";
 
 interface NavItem {
@@ -18,27 +20,32 @@ interface NavItem {
   href: string;
   icon: LucideIcon;
   description: string;
+  adminOnly?: boolean;
 }
 
-interface DemoSidebarProps {
+interface AppSidebarProps {
   navigation: NavItem[];
-  title: string;
-  subtitle: string;
 }
 
 function SidebarContent({
   navigation,
-  title,
-  subtitle,
   pathname,
+  userName,
+  userRole,
   onNavClick,
+  onLogout,
 }: {
   navigation: NavItem[];
-  title: string;
-  subtitle: string;
   pathname: string;
+  userName: string;
+  userRole: string;
   onNavClick?: () => void;
+  onLogout: () => void;
 }) {
+  const visibleNav = navigation.filter(
+    (item) => !item.adminOnly || userRole === "admin"
+  );
+
   return (
     <>
       {/* Logo */}
@@ -57,7 +64,7 @@ function SidebarContent({
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1">
-        {navigation.map((item) => {
+        {visibleNav.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
@@ -82,27 +89,46 @@ function SidebarContent({
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-3">
         <div className="text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">{title}</p>
-          <p>{subtitle}</p>
+          <p className="font-medium text-foreground">PURIFICADORA EL BALUARTE</p>
+          <p>{userName}</p>
         </div>
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Cerrar sesion
+        </button>
       </div>
     </>
   );
 }
 
-export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
+export function AppSidebar({ navigation }: AppSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { nombre, role } = useAuth();
 
   // Close sheet on navigation
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
   // Find current page name for mobile header
-  const currentPage = navigation.find((item) => item.href === pathname);
+  const visibleNav = navigation.filter(
+    (item) => !item.adminOnly || role === "admin"
+  );
+  const currentPage = visibleNav.find((item) => item.href === pathname);
 
   return (
     <>
@@ -115,7 +141,7 @@ export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <span className="text-sm font-semibold">{currentPage?.name ?? title}</span>
+        <span className="text-sm font-semibold">{currentPage?.name ?? "Purificadora El Baluarte"}</span>
         <div className="w-10" />
       </header>
 
@@ -125,10 +151,11 @@ export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
           <SheetTitle className="sr-only">Menu de navegacion</SheetTitle>
           <SidebarContent
             navigation={navigation}
-            title={title}
-            subtitle={subtitle}
             pathname={pathname}
+            userName={nombre}
+            userRole={role}
             onNavClick={() => setOpen(false)}
+            onLogout={handleLogout}
           />
         </SheetContent>
       </Sheet>
@@ -137,9 +164,10 @@ export function DemoSidebar({ navigation, title, subtitle }: DemoSidebarProps) {
       <aside className="hidden md:flex w-60 border-r border-border/50 bg-sidebar backdrop-blur-xl flex-col">
         <SidebarContent
           navigation={navigation}
-          title={title}
-          subtitle={subtitle}
           pathname={pathname}
+          userName={nombre}
+          userRole={role}
+          onLogout={handleLogout}
         />
       </aside>
     </>

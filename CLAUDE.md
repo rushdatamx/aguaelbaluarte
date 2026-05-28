@@ -2,21 +2,21 @@
 
 ## Sobre el proyecto
 
-Sistema de gestión de ventas y entregas para **Purificadora El Baluarte**, una purificadora de agua en Monterrey, NL. El sistema tiene dos canales de registro de ventas (Domicilio para entregas, Físico para punto de venta), un dashboard con KPIs, GPS del repartidor, y un historial completo de ventas filtrable.
+Sistema de gestión de ventas y entregas para **Purificadora El Baluarte**, una purificadora de agua en Monterrey, NL. El sistema tiene dos canales de registro de ventas (Domicilio para entregas, Físico para punto de venta), un dashboard con KPIs, y un historial completo de ventas filtrable.
 
-**Estado actual:** Demo/MVP con datos mock. Sin backend ni base de datos conectados.
+**Estado actual:** Producción con Supabase (PostgreSQL + Auth). GPS diferido.
 
 ### Cliente
 - **Negocio:** Purificadora de agua con entregas a domicilio y ventas en punto de venta
 - **Repartidor:** Hace ~30 entregas/día en camioneta (Chevrolet NP300 2021)
 - **Administradora:** Registra ventas físicas y supervisa operación desde el dashboard
 - **GPS:** PAJ Vehicle Finder 4G instalado en la camioneta
-- **Usuarios del sistema:** 1-3 (dueño/administradores)
+- **Usuarios del sistema:** 1 Admin (acceso total) + 2 Vendedores (solo registrar ventas)
 
 ### Problema que resuelve
-Todo se lleva en papel (notas de remisión físicas). No hay visibilidad de ventas en tiempo real, no se sabe cuánto se vendió hasta contar efectivo, y los pedidos por WhatsApp se pierden.
+Todo se lleva en papel (notas de remisión físicas). No hay visibilidad de ventas en tiempo real y no se sabe cuánto se vendió hasta contar efectivo. El registro de ventas se hace directamente desde la app (Ventas Domicilio y Ventas Físico).
 
-## Stack técnico (demo actual)
+## Stack técnico
 
 | Tecnología | Versión | Uso |
 |---|---|---|
@@ -24,84 +24,98 @@ Todo se lleva en papel (notas de remisión físicas). No hay visibilidad de vent
 | React | 19.2.3 | UI Library |
 | TypeScript | 5 | Tipado |
 | Tailwind CSS | 4 | Estilos (OKLch color space) |
+| Supabase | @supabase/ssr + @supabase/supabase-js | Backend (PostgreSQL + Auth) |
 | shadcn/ui | new-york style | Componentes UI (Card, Badge, Input, Table, Sheet) |
-| Recharts | 3.7.0 | Gráficas (BarChart, AreaChart) |
+| Recharts | 3.7.0 | Gráficas (BarChart) |
 | Lucide React | 0.563.0 | Iconos |
 | Radix UI | 1.4.3 | Primitivos accesibles |
 | Plus Jakarta Sans | — | Tipografía principal |
 
-### Stack planeado para producción
+### Arquitectura
 - **Frontend/Hosting:** Vercel + Next.js
-- **Backend/Automatización:** n8n
-- **Base de datos:** Supabase (PostgreSQL + Auth + Storage + Realtime)
-- **Infraestructura:** Railway
-- **WhatsApp:** Meta Cloud API (WhatsApp Business)
-- **GPS:** PAJ-Portal API
+- **Base de datos + Auth:** Supabase (PostgreSQL + Row Level Security)
+- **Server Actions:** Para registrar ventas y buscar clientes
+- **SQL Views:** Para KPIs del dashboard (calculados server-side)
+- **Roles:** Admin (acceso total) + Vendedor (solo formularios de venta + clientes)
+- **GPS:** Diferido (PAJ-Portal API pendiente)
 
-## Estructura de archivos (real)
+## Estructura de archivos
 
 ```
 purificadora-el-baluarte/
 ├── CLAUDE.md                           # Este archivo
 ├── vercel.json                         # Config Vercel (framework: nextjs)
-├── gen_purificadora.py                 # Generador de datos mock (Python)
 ├── package.json
-├── next.config.ts
+├── next.config.ts                      # Redirects legacy /demos/purificadora/* → /*
 ├── tsconfig.json
 ├── components.json                     # Config shadcn/ui
 ├── postcss.config.mjs                  # Config Tailwind CSS
+├── .env.local                          # NEXT_PUBLIC_SUPABASE_URL + ANON_KEY
+├── supabase/
+│   └── migrations/
+│       └── 001_initial_schema.sql      # Schema, seed, views, RLS
 ├── public/
-│   ├── images/
-│   │   └── rushdata-logo.png
-│   └── data/
-│       └── purificadora.json           # Datos mock (~2.3MB)
+│   └── images/
+│       └── rushdata-logo.png
 ├── src/
+│   ├── middleware.ts                   # Auth middleware (redirect a /login si no hay sesión)
 │   ├── app/
 │   │   ├── layout.tsx                  # Root layout (Plus Jakarta Sans font)
-│   │   ├── page.tsx                    # Home — redirect a /demos/purificadora
-│   │   ├── globals.css                 # Estilos globales + CSS vars + glassmorphism + scrollbar-hide
-│   │   └── demos/purificadora/
-│   │       ├── layout.tsx              # Layout con sidebar (DemoSidebar) + pt-14 mobile offset
-│   │       ├── page.tsx                # Dashboard (KPIs, gráficas, últimas ventas)
+│   │   ├── globals.css                 # Estilos globales + CSS vars + glassmorphism
+│   │   ├── login/
+│   │   │   └── page.tsx                # Login con email/password (Supabase Auth)
+│   │   └── (app)/
+│   │       ├── layout.tsx              # Layout con sidebar + AuthProvider (Server Component)
+│   │       ├── loading.tsx             # Skeleton loading state
+│   │       ├── error.tsx               # Error boundary
+│   │       ├── page.tsx                # Dashboard (KPIs desde SQL views, admin only)
 │   │       ├── ventas-domicilio/
-│   │       │   └── page.tsx            # Formulario entregas a domicilio
+│   │       │   └── page.tsx            # Server wrapper → FormDomicilio
 │   │       ├── ventas/
-│   │       │   └── page.tsx            # Formulario ventas punto de venta
+│   │       │   └── page.tsx            # Server wrapper → FormFisico
 │   │       ├── todas-ventas/
-│   │       │   └── page.tsx            # Historial de ventas (tabla desktop / cards móvil)
-│   │       ├── gps/
-│   │       │   └── page.tsx            # GPS en tiempo real (mapa SVG simulado)
+│   │       │   └── page.tsx            # Server wrapper → VentasList (admin only)
 │   │       └── clientes/
-│   │           └── page.tsx            # Base de clientes (tabla desktop / cards móvil)
+│   │           └── page.tsx            # Server wrapper → ClientesList
 │   ├── hooks/
 │   │   └── use-mobile.ts              # Hook useIsMobile (matchMedia 768px)
 │   ├── components/
 │   │   ├── ui/                         # shadcn/ui components
-│   │   │   ├── card.tsx
-│   │   │   ├── badge.tsx
-│   │   │   ├── input.tsx
-│   │   │   ├── table.tsx
-│   │   │   └── sheet.tsx               # Sheet/drawer para sidebar móvil
+│   │   │   ├── card.tsx, badge.tsx, input.tsx, table.tsx, sheet.tsx
 │   │   ├── shared/
-│   │   │   └── demo-sidebar.tsx        # Sidebar + mobile header + Sheet drawer
+│   │   │   └── app-sidebar.tsx         # Sidebar con logout, roles, rutas limpias
+│   │   ├── providers/
+│   │   │   └── auth-provider.tsx       # AuthContext (id, nombre, role)
 │   │   └── purificadora/
-│   │       ├── ingresos-chart.tsx      # Gráfica de ingresos (BarChart, responsive height)
-│   │       └── garrafones-chart.tsx    # Gráfica de garrafones (AreaChart, responsive height)
+│   │       ├── ingresos-chart.tsx      # Gráfica de ingresos (BarChart)
+│   │       ├── form-domicilio.tsx      # Formulario entregas (Client Component)
+│   │       ├── form-fisico.tsx         # Formulario punto de venta (Client Component)
+│   │       ├── ventas-list.tsx         # Lista ventas con filtros (Client Component)
+│   │       └── clientes-list.tsx       # Lista clientes con búsqueda (Client Component)
 │   └── lib/
-│       └── utils.ts                    # clsx + tailwind-merge utility
+│       ├── utils.ts                    # clsx + tailwind-merge
+│       ├── types.ts                    # TypeScript interfaces compartidas
+│       ├── supabase/
+│       │   ├── client.ts              # createBrowserClient()
+│       │   ├── server.ts              # createServerClient() con cookies
+│       │   └── middleware.ts           # Helper de auth para middleware
+│       └── actions/
+│           ├── ventas.ts              # registrarVenta() server action
+│           └── clientes.ts            # buscarClientes(), crearCliente() server actions
 ```
 
 ## Rutas de la app
 
-| Ruta | Archivo | Descripción |
-|---|---|---|
-| `/` | `src/app/page.tsx` | Redirect a `/demos/purificadora` |
-| `/demos/purificadora` | `src/app/demos/purificadora/page.tsx` | Dashboard principal |
-| `/demos/purificadora/ventas-domicilio` | `.../ventas-domicilio/page.tsx` | Formulario entregas domicilio |
-| `/demos/purificadora/ventas` | `.../ventas/page.tsx` | Formulario punto de venta |
-| `/demos/purificadora/todas-ventas` | `.../todas-ventas/page.tsx` | Historial de ventas |
-| `/demos/purificadora/gps` | `.../gps/page.tsx` | GPS en tiempo real |
-| `/demos/purificadora/clientes` | `.../clientes/page.tsx` | Base de clientes |
+| Ruta | Archivo | Acceso | Descripción |
+|---|---|---|---|
+| `/login` | `src/app/login/page.tsx` | Público | Login email/password |
+| `/` | `src/app/(app)/page.tsx` | Admin | Dashboard (KPIs, gráficas, últimas ventas) |
+| `/ventas-domicilio` | `src/app/(app)/ventas-domicilio/page.tsx` | Todos | Formulario entregas domicilio |
+| `/ventas` | `src/app/(app)/ventas/page.tsx` | Todos | Formulario punto de venta |
+| `/todas-ventas` | `src/app/(app)/todas-ventas/page.tsx` | Admin | Historial de ventas |
+| `/clientes` | `src/app/(app)/clientes/page.tsx` | Todos | Base de clientes |
+
+**Redirects legacy:** `/demos/purificadora/*` → `/*` (301 permanent)
 
 ## Productos y precios
 
@@ -151,16 +165,16 @@ purificadora-el-baluarte/
 
 ## Secciones del sistema (detalle)
 
-### 1. Dashboard (`/demos/purificadora`)
+### 1. Dashboard (`/`) — Admin only
 - **KPI Cards (4):** Ingresos Hoy, Ingresos del Mes (con % vs mes anterior), Entregas Hoy (completadas/total + pendientes), Clientes Activos
   - Móvil: grid 2 columnas, textos `text-xl` | Desktop: grid 4 columnas, `text-2xl`
 - **Desglose por producto (4 cols):** Garrafón 20L, Botella 1L, Botella 500ml, Cuentalitros — cada uno muestra cantidad, unidad, monto, # ventas
   - Móvil: grid 2 columnas | Desktop: grid 4 columnas
 - **Gráfica de ingresos 7 días:** BarChart (Recharts) con `ingresos-chart.tsx` (h-200px móvil / h-280px desktop)
 - **Ruta activa:** Tiempo, barra de progreso, monto total, nombre del repartidor, estado (En progreso/Completada/Pendiente)
-- **Últimas 5 ventas:** Cliente, producto, cantidad, monto, estado (Entregado/En camino/Asignado/Pendiente), fuente (WhatsApp/Admin)
+- **Últimas 5 ventas:** Cliente, producto, cantidad, monto, estado (Entregado/En camino/Asignado/Pendiente), fuente (Domicilio/Físico)
 
-### 2. Ventas Domicilio (`/demos/purificadora/ventas-domicilio`)
+### 2. Ventas Domicilio (`/ventas-domicilio`)
 - Formulario con búsqueda de cliente (dropdown con nombre + dirección, items `py-3` en móvil)
 - **Desktop:** Tabla grid de productos con cantidades editables y totales auto-calculados
 - **Móvil:** Cards de producto con botones +/- stepper (44×44px touch targets)
@@ -169,7 +183,7 @@ purificadora-el-baluarte/
 - Pantalla de confirmación de éxito (2 segundos) → reset del formulario
 - Botón deshabilitado hasta llenar campos requeridos
 
-### 3. Ventas Físico (`/demos/purificadora/ventas`)
+### 3. Ventas Físico (`/ventas`)
 - Toggle de turno: Matutino / Vespertino (botones `py-3` en móvil)
 - **Cuentalitros (va primero en el formulario):** Ambas lecturas manuales (inicial y final, `h-11` en móvil). Litros disponibles = final - inicial. Muestra litros restantes (verde/ámbar/rojo)
 - **Desktop:** Tabla grid de productos con columna "Litros" por unidad
@@ -179,7 +193,7 @@ purificadora-el-baluarte/
 - Upload de evidencia fotográfica
 - Pantalla de confirmación → reset (ambas lecturas se limpian)
 
-### 4. Todas Ventas (`/demos/purificadora/todas-ventas`)
+### 4. Todas Ventas (`/todas-ventas`) — Admin only
 - **Resumen (5 cards):** Total (col-span-2 en móvil), Efectivo, Transferencia, Crédito, No Pagado (rojo si > 0)
 - **Filtros:** Periodo (Hoy/Semana/Mes/Todo con scroll horizontal + snap en móvil), búsqueda texto libre (`h-11` móvil), método de pago, estado de pago, fuente (selects `h-11` en móvil)
 - **Desktop:** Tabla con 9 columnas (#Venta, Fecha, Cliente+Colonia, Producto, Cantidad, Monto, Pago, Estado, Fuente)
@@ -187,18 +201,7 @@ purificadora-el-baluarte/
 - Muestra primeros 100 resultados con nota de filtrado
 - Badges con colores: verde (pagado), rojo (no pagado), outline (otros), mínimo `text-[11px]`
 
-### 5. GPS Domicilio (`/demos/purificadora/gps`)
-- **Mapa SVG simulado:** h-280px móvil / h-420px desktop. Grid de calles, ruta (polyline azul), paradas (círculos verdes), base (círculo índigo), ubicación actual (azul cielo con animación pulse)
-- **Header responsive:** flex-col en móvil, flex-row en desktop
-- **Info del vehículo:** Nombre, placa, ID dispositivo GPS
-- **Stats de jornada (2×2):** Km recorridos, paradas realizadas, tiempo en ruta, tiempo detenido
-- **Info adicional:** Hora de salida, regreso estimado, promedio diario km
-- **Alertas:** Tipo, mensaje, hora, nivel de severidad
-- **Resumen semanal (6 cols):** Lun-Sáb con km, paradas, salida, regreso
-- Textos mínimo `text-[11px]` (no más text-[9px] o text-[10px])
-- Nota: "Datos obtenidos via PAJ GPS Vehicle Finder 4G · API en tiempo real"
-
-### 6. Clientes (`/demos/purificadora/clientes`)
+### 5. Clientes (`/clientes`)
 - Header responsive: flex-col en móvil (search full-width), flex-row en desktop (search w-64)
 - Búsqueda en tiempo real por nombre, teléfono, dirección, colonia (`h-11` en móvil)
 - **Desktop:** Tabla con 6 columnas (Nombre, Teléfono, Colonia, Pedidos, Total Gastado, Último Pedido)
@@ -207,51 +210,47 @@ purificadora-el-baluarte/
 
 ## Sidebar / Navegación
 
-Componente: `src/components/shared/demo-sidebar.tsx`
+Componente: `src/components/shared/app-sidebar.tsx`
 
-| Item | Icono | Ruta | Subtítulo |
+| Item | Icono | Ruta | Solo Admin |
 |---|---|---|---|
-| Dashboard | LayoutDashboard | `/demos/purificadora` | KPIs e ingresos del día |
-| Ventas Domicilio | Truck | `.../ventas-domicilio` | Entregas a domicilio |
-| Ventas Físico | ShoppingCart | `.../ventas` | Ventas en punto de venta |
-| Ventas | ClipboardList | `.../todas-ventas` | Consulta y filtra ventas |
-| GPS Domicilio | MapPin | `.../gps` | Ubicación en tiempo real |
-| Clientes | Users | `.../clientes` | Base de clientes |
+| Dashboard | LayoutDashboard | `/` | Sí |
+| Ventas Domicilio | Truck | `/ventas-domicilio` | No |
+| Ventas Físico | ShoppingCart | `/ventas` | No |
+| Ventas | ClipboardList | `/todas-ventas` | Sí |
+| Clientes | Users | `/clientes` | No |
 
 - Logo RushData arriba
 - Highlight de página activa con `bg-accent` + `ChevronRight`
-- Footer: "PURIFICADORA EL BALUARTE" / "Gestión de entregas con IA"
+- Footer: "PURIFICADORA EL BALUARTE" / nombre del usuario / botón "Cerrar sesión"
+- Items admin-only se ocultan para vendedores
 - **Desktop (≥768px):** `<aside>` fijo `w-60`, fondo glassmorphic con backdrop blur
-- **Móvil (<768px):** Header fijo `h-14` con botón hamburguesa + Sheet (drawer) desde la izquierda. Se cierra automáticamente al navegar (usePathname + useEffect)
-- Contenido de navegación extraído a componente interno `SidebarContent` (reutilizado en desktop y sheet)
+- **Móvil (<768px):** Header fijo `h-14` con botón hamburguesa + Sheet (drawer) desde la izquierda
+- Contenido de navegación extraído a componente interno `SidebarContent`
 
-## Estructura de datos mock (purificadora.json)
+## Base de datos (Supabase PostgreSQL)
 
-```
-{
-  empresa: { nombre, repartidor, productos[], fecha_actualizacion }
-  kpis: {
-    ingresos_hoy, ingresos_semana, ingresos_mes, variacion_mes,
-    entregas_hoy, pendientes_hoy, total_ventas_hoy,
-    total_clientes, clientes_activos,
-    desglose_hoy: [...], desglose_mes: [...]
-  }
-  ingresos_7_dias: [{ fecha, dia, monto }]
-  garrafones_por_semana: [{ semana, cantidad }]
-  ruta_activa: { tipo, estado, ventas_entregadas, total_ventas, total_monto }
-  ultimas_ventas: [{ id, numero_venta, cliente_nombre, producto_nombre, cantidad, unidad, monto_total, estado, fuente }]
-  todas_ventas: [{ numero_venta, cliente_nombre, cliente_colonia, producto_id, producto_nombre, cantidad, unidad, monto_total, estado, estado_pago, metodo_pago, fuente, fecha_ruta, created_at }]
-  clientes: [{ id, nombre, telefono, direccion, colonia, total_pedidos, total_gastado, ultimo_pedido }]
-  gps: {
-    estado, vehiculo, placa, dispositivo,
-    ubicacion_actual: { direccion, velocidad_kmh, ultima_actualizacion },
-    ruta_puntos: [{ lat, lng, velocidad_kmh, hora, es_parada }],
-    jornada_hoy: { km_recorridos, paradas_realizadas, tiempo_en_ruta, tiempo_detenido, ... },
-    historial_semanal: { lun, mar, mie, jue, vie, sab },
-    alertas: [{ tipo, mensaje, hora, nivel }]
-  }
-}
-```
+### Tablas
+- `user_profiles` — id (FK auth.users), nombre, role (admin/vendedor), activo
+- `productos` — id (text slug), nombre, canal (domicilio/fisico), precio, unidad, litros_por_unidad, orden, activo
+- `clientes` — id, nombre, telefono, direccion, colonia, referencia, notas, activo
+- `ventas` — id, numero_venta (serial), cliente_id, fuente, turno, estado, estado_pago, metodo_pago, lectura_inicial, lectura_final, evidencia_url, monto_total, fecha_venta, created_by
+- `venta_items` — id, venta_id (FK CASCADE), producto_id, cantidad, precio_unitario, monto_total
+
+### SQL Views
+- `v_dashboard_kpis` — ingresos hoy/semana/mes, mes anterior, entregas, pendientes
+- `v_ingresos_7_dias` — últimos 7 días agrupados por fecha
+- `v_desglose_hoy` — breakdown por producto (cantidad, monto, # ventas)
+- `v_desglose_mes` — breakdown por producto del mes
+- `v_cliente_stats` — clientes con total_pedidos, total_gastado, ultimo_pedido
+
+### RLS
+- Todos leen productos, clientes, ventas, venta_items
+- Todos insertan clientes, ventas, venta_items
+- Solo admin modifica/elimina
+- Helper: `auth.user_role()` retorna rol del usuario autenticado
+
+### Migration: `supabase/migrations/001_initial_schema.sql`
 
 ## Diseño y colores
 
@@ -273,29 +272,17 @@ Componente: `src/components/shared/demo-sidebar.tsx`
   - Sidebar → Sheet drawer con hamburguesa en <768px
   - CSS utility `.scrollbar-hide` para scroll horizontal sin scrollbar
 
-## Integraciones planeadas
+## Integraciones
 
-### WhatsApp Business API (Meta Cloud API)
-- El repartidor envía resumen diario por WhatsApp en formato simple
-- El sistema registra automáticamente las ventas reportadas
-- Clientes pueden pedir garrafones por WhatsApp
+### Supabase (activo)
+- PostgreSQL para almacenamiento (tablas + views)
+- Auth con email/password + Row Level Security
+- Server Actions para escritura, SQL Views para lectura
 
-### PAJ-Portal GPS API
-- Rastreo en tiempo real de la camioneta del repartidor
-- Endpoints: autenticación, gestión de vehículos, ubicación, velocidad, batería
-- Home Assistant integration revela endpoints adicionales
-- Por ahora se usa mockup; implementación real requiere credenciales del cliente
-
-### n8n (automatización)
-- Procesamiento de mensajes WhatsApp
-- Registro automático de ventas
-- Reconciliación de pagos
-
-### Supabase (base de datos)
-- PostgreSQL para almacenamiento
-- Real-time subscriptions para updates en vivo
-- Storage para evidencias fotográficas
-- Auth para autenticación de usuarios
+### Pendientes
+- **PAJ-Portal GPS API:** Rastreo en tiempo real (diferido, requiere credenciales del cliente)
+- **n8n:** Automatización de procesos internos
+- **Supabase Storage:** Para evidencias fotográficas (actualmente solo campo de referencia)
 
 ## Comandos de desarrollo
 

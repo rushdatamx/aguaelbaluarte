@@ -12,11 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Users } from "lucide-react";
-import data from "../../../../../public/data/purificadora.json";
+import type { ClienteStats } from "@/lib/types";
 
-export default function ClientesPage() {
+interface ClientesListProps {
+  clientes: ClienteStats[];
+  totalClientes: number;
+}
+
+export function ClientesList({ clientes, totalClientes }: ClientesListProps) {
   const [search, setSearch] = useState("");
-  const { clientes, kpis } = data;
 
   const filtered = useMemo(() => {
     if (!search) return clientes;
@@ -24,9 +28,9 @@ export default function ClientesPage() {
     return clientes.filter(
       (c) =>
         c.nombre.toLowerCase().includes(q) ||
-        c.telefono.includes(q) ||
-        c.direccion.toLowerCase().includes(q) ||
-        c.colonia.toLowerCase().includes(q)
+        (c.telefono || "").includes(q) ||
+        (c.direccion || "").toLowerCase().includes(q) ||
+        (c.colonia || "").toLowerCase().includes(q)
     );
   }, [search, clientes]);
 
@@ -35,7 +39,7 @@ export default function ClientesPage() {
       <div className="mb-6 md:mb-8">
         <h1 className="text-xl md:text-2xl font-semibold text-foreground">Clientes</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {kpis.clientes_activos} clientes activos de {kpis.total_clientes} registrados
+          {clientes.length} clientes activos de {totalClientes} registrados
         </p>
       </div>
 
@@ -75,8 +79,8 @@ export default function ClientesPage() {
                 {filtered.map((cliente) => (
                   <TableRow key={cliente.id}>
                     <TableCell className="text-sm font-medium">{cliente.nombre}</TableCell>
-                    <TableCell className="text-sm font-mono">{cliente.telefono}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{cliente.colonia}</TableCell>
+                    <TableCell className="text-sm font-mono">{cliente.telefono || "-"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{cliente.colonia || "-"}</TableCell>
                     <TableCell className="text-right text-sm">{cliente.total_pedidos}</TableCell>
                     <TableCell className="text-right text-sm font-medium">
                       ${(cliente.total_gastado || 0).toLocaleString("es-MX")}
@@ -103,14 +107,20 @@ export default function ClientesPage() {
                     ${(cliente.total_gastado || 0).toLocaleString("es-MX")}
                   </p>
                 </div>
-                <p className="text-xs text-muted-foreground font-mono">{cliente.telefono}</p>
+                <p className="text-xs text-muted-foreground font-mono">{cliente.telefono || "-"}</p>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{cliente.colonia} · {cliente.total_pedidos} pedidos</span>
+                  <span>{cliente.colonia || "-"} &middot; {cliente.total_pedidos} pedidos</span>
                   <span>{cliente.ultimo_pedido || "-"}</span>
                 </div>
               </div>
             ))}
           </div>
+
+          {filtered.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-sm text-muted-foreground">No se encontraron clientes</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
