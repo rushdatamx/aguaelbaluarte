@@ -4,7 +4,11 @@ import { requireRole } from "@/lib/auth";
 import type { ClienteStats } from "@/lib/types";
 
 export default async function ClientesPage() {
-  await requireRole(["admin", "vendedor_fisico", "vendedor_domicilio"]);
+  const role = await requireRole([
+    "admin",
+    "vendedor_fisico",
+    "vendedor_domicilio",
+  ]);
   const supabase = await createClient();
 
   const { data: clientes } = await supabase
@@ -21,6 +25,7 @@ export default async function ClientesPage() {
     <ClientesList
       clientes={(clientes as ClienteStats[]) || []}
       totalClientes={totalClientes || 0}
+      isAdmin={role === "admin"}
     />
   );
 }

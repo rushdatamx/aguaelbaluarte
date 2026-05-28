@@ -18,10 +18,12 @@ interface FormDomicilioProps {
   productos: Producto[];
 }
 
+const PUBLICO_EN_GENERAL_ID = "00000000-0000-0000-0000-000000000001";
+
 export function FormDomicilio({ productos }: FormDomicilioProps) {
-  const [clienteId, setClienteId] = useState("");
-  const [clienteNombre, setClienteNombre] = useState("");
-  const [clienteDireccion, setClienteDireccion] = useState("");
+  const [clienteId, setClienteId] = useState(PUBLICO_EN_GENERAL_ID);
+  const [clienteNombre, setClienteNombre] = useState("Público en general");
+  const [clienteDireccion, setClienteDireccion] = useState("Cliente predeterminado");
   const [cantidades, setCantidades] = useState<Record<string, number>>(
     () => Object.fromEntries(productos.map((p) => [p.id, 0]))
   );
@@ -85,9 +87,9 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
-        setClienteId("");
-        setClienteNombre("");
-        setClienteDireccion("");
+        setClienteId(PUBLICO_EN_GENERAL_ID);
+        setClienteNombre("Público en general");
+        setClienteDireccion("Cliente predeterminado");
         setClienteSearch("");
         setCantidades(Object.fromEntries(productos.map((p) => [p.id, 0])));
         setEstadoPago("pagado");
@@ -145,14 +147,20 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
                     </div>
                     <button
                       onClick={() => {
-                        setClienteId("");
-                        setClienteNombre("");
-                        setClienteDireccion("");
+                        if (clienteId === PUBLICO_EN_GENERAL_ID) {
+                          setClienteId("");
+                          setClienteNombre("");
+                          setClienteDireccion("");
+                        } else {
+                          setClienteId(PUBLICO_EN_GENERAL_ID);
+                          setClienteNombre("Público en general");
+                          setClienteDireccion("Cliente predeterminado");
+                        }
                         setClienteSearch("");
                       }}
                       className="text-xs text-sky-600 hover:text-sky-700"
                     >
-                      Cambiar
+                      {clienteId === PUBLICO_EN_GENERAL_ID ? "Buscar cliente" : "Cambiar"}
                     </button>
                   </div>
                 ) : (

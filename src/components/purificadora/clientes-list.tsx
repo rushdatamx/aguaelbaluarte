@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,16 +11,81 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Users } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Search, Users, Plus, Loader2, UserPlus } from "lucide-react";
+import { crearCliente } from "@/lib/actions/clientes";
+import { useRouter } from "next/navigation";
 import type { ClienteStats } from "@/lib/types";
 
 interface ClientesListProps {
   clientes: ClienteStats[];
   totalClientes: number;
+  isAdmin: boolean;
 }
 
-export function ClientesList({ clientes, totalClientes }: ClientesListProps) {
+const PUBLICO_EN_GENERAL_ID = "00000000-0000-0000-0000-000000000001";
+
+export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [formError, setFormError] = useState("");
+
+  // Form state
+  const [nombre, setNombre] = useState("");
+  const [telefono, setTelefono] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [colonia, setColonia] = useState("");
+  const [referencia, setReferencia] = useState("");
+  const [notas, setNotas] = useState("");
+
+  const resetForm = () => {
+    setNombre("");
+    setTelefono("");
+    setDireccion("");
+    setColonia("");
+    setReferencia("");
+    setNotas("");
+    setFormError("");
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError("");
+
+    if (!nombre.trim()) {
+      setFormError("El nombre es obligatorio");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await crearCliente({
+        nombre: nombre.trim(),
+        telefono: telefono.trim() || undefined,
+        direccion: direccion.trim() || undefined,
+        colonia: colonia.trim() || undefined,
+        referencia: referencia.trim() || undefined,
+        notas: notas.trim() || undefined,
+      });
+
+      if (result.error) {
+        setFormError(result.error);
+        return;
+      }
+
+      resetForm();
+      setSheetOpen(false);
+      router.refresh();
+    });
+  };
 
   const filtered = useMemo(() => {
     if (!search) return clientes;
@@ -36,11 +101,23 @@ export function ClientesList({ clientes, totalClientes }: ClientesListProps) {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Clientes</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {clientes.length} clientes activos de {totalClientes} registrados
-        </p>
+      <div className="mb-6 md:mb-8 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Clientes</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {clientes.length} clientes activos de {totalClientes} registrados
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="h-11 md:h-10 px-4 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 transition-colors flex items-center gap-2 shrink-0"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden md:inline">Nuevo Cliente</span>
+            <span className="md:hidden">Nuevo</span>
+          </button>
+        )}
       </div>
 
       <Card>
@@ -78,7 +155,16 @@ export function ClientesList({ clientes, totalClientes }: ClientesListProps) {
               <TableBody>
                 {filtered.map((cliente) => (
                   <TableRow key={cliente.id}>
-                    <TableCell className="text-sm font-medium">{cliente.nombre}</TableCell>
+                    <TableCell className="text-sm font-medium">
+                      <div className="flex items-center gap-2">
+                        {cliente.nombre}
+                        {cliente.id === PUBLICO_EN_GENERAL_ID && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Predeterminado
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm font-mono">{cliente.telefono || "-"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{cliente.colonia || "-"}</TableCell>
                     <TableCell className="text-right text-sm">{cliente.total_pedidos}</TableCell>
@@ -102,7 +188,14 @@ export function ClientesList({ clientes, totalClientes }: ClientesListProps) {
                 className="rounded-lg border border-border/50 p-3 space-y-1.5"
               >
                 <div className="flex items-start justify-between">
-                  <p className="text-sm font-medium">{cliente.nombre}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium">{cliente.nombre}</p>
+                    {cliente.id === PUBLICO_EN_GENERAL_ID && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Predeterminado
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm font-bold text-sky-600 ml-2 shrink-0">
                     ${(cliente.total_gastado || 0).toLocaleString("es-MX")}
                   </p>
@@ -123,6 +216,136 @@ export function ClientesList({ clientes, totalClientes }: ClientesListProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Sheet: Nuevo Cliente */}
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) resetForm();
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="p-6 pb-4 border-b border-border">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <UserPlus className="h-4 w-4 text-sky-500" />
+              Nuevo Cliente
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Registra un nuevo cliente en la base de datos
+            </SheetDescription>
+          </SheetHeader>
+
+          <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-6 space-y-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Nombre <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej. Juan Pérez"
+                required
+                className="h-11"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Teléfono
+              </label>
+              <Input
+                type="tel"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                placeholder="81 1234 5678"
+                className="h-11"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Dirección
+              </label>
+              <Input
+                type="text"
+                value={direccion}
+                onChange={(e) => setDireccion(e.target.value)}
+                placeholder="Calle, número"
+                className="h-11"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Colonia
+              </label>
+              <Input
+                type="text"
+                value={colonia}
+                onChange={(e) => setColonia(e.target.value)}
+                placeholder="Colonia"
+                className="h-11"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Referencia
+              </label>
+              <Input
+                type="text"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                placeholder="Entre calles, color de casa, etc."
+                className="h-11"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Notas
+              </label>
+              <textarea
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder="Información adicional..."
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 resize-none"
+              />
+            </div>
+
+            {formError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">
+                {formError}
+              </p>
+            )}
+          </form>
+
+          <div className="border-t border-border p-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setSheetOpen(false);
+              }}
+              disabled={isPending}
+              className="flex-1 h-11 rounded-lg border border-border bg-background text-sm font-medium hover:bg-muted transition-colors disabled:opacity-40"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isPending || !nombre.trim()}
+              className="flex-1 h-11 bg-sky-500 text-white rounded-lg text-sm font-bold hover:bg-sky-600 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isPending ? "Guardando..." : "Crear Cliente"}
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   ClipboardList,
   Users,
+  Package,
 } from "lucide-react";
 import {
   Sheet,
@@ -68,6 +69,13 @@ const navigation: NavItem[] = [
     icon: Users,
     description: "Base de clientes",
     roles: ["admin", "vendedor_fisico", "vendedor_domicilio"],
+  },
+  {
+    name: "Productos",
+    href: "/productos",
+    icon: Package,
+    description: "Editar precios y catalogo",
+    roles: ["admin"],
   },
 ];
 

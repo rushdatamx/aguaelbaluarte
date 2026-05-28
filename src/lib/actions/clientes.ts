@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+const PUBLICO_EN_GENERAL_ID = "00000000-0000-0000-0000-000000000001";
+
 export async function buscarClientes(query: string) {
   const supabase = await createClient();
 
@@ -11,6 +13,7 @@ export async function buscarClientes(query: string) {
     .select("id, nombre, telefono, direccion, colonia")
     .ilike("nombre", `%${query}%`)
     .eq("activo", true)
+    .neq("id", PUBLICO_EN_GENERAL_ID)
     .limit(8);
 
   if (error) return [];

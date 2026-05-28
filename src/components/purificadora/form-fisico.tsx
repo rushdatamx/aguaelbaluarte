@@ -13,13 +13,23 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { registrarVenta } from "@/lib/actions/ventas";
+import { buscarClientes } from "@/lib/actions/clientes";
 import type { Producto } from "@/lib/types";
 
 interface FormFisicoProps {
   productos: Producto[];
 }
 
+const PUBLICO_EN_GENERAL_ID = "00000000-0000-0000-0000-000000000001";
+
 export function FormFisico({ productos }: FormFisicoProps) {
+  const [clienteId, setClienteId] = useState(PUBLICO_EN_GENERAL_ID);
+  const [clienteNombre, setClienteNombre] = useState("Público en general");
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [clientesFiltrados, setClientesFiltrados] = useState<
+    { id: string; nombre: string; direccion: string | null; colonia: string | null }[]
+  >([]);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [turno, setTurno] = useState("matutino");
   const [cantidades, setCantidades] = useState<Record<string, number>>(
     () => Object.fromEntries(productos.map((p) => [p.id, 0]))
@@ -31,6 +41,20 @@ export function FormFisico({ productos }: FormFisicoProps) {
   const [evidencia, setEvidencia] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const handleSearchChange = (value: string) => {
+    setClienteSearch(value);
+    if (searchTimeout) clearTimeout(searchTimeout);
+    if (value.length < 2) {
+      setClientesFiltrados([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      const results = await buscarClientes(value);
+      setClientesFiltrados(results);
+    }, 300);
+    setSearchTimeout(timeout);
+  };
 
   const montoTotal = productos.reduce(
     (sum, p) => sum + (cantidades[p.id] || 0) * p.precio,
@@ -72,6 +96,7 @@ export function FormFisico({ productos }: FormFisicoProps) {
 
     startTransition(async () => {
       const result = await registrarVenta({
+        cliente_id: clienteId,
         fuente: "fisico",
         turno: turno as "matutino" | "vespertino",
         estado: "entregado",
@@ -91,6 +116,9 @@ export function FormFisico({ productos }: FormFisicoProps) {
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
+        setClienteId(PUBLICO_EN_GENERAL_ID);
+        setClienteNombre("Público en general");
+        setClienteSearch("");
         setCantidades(Object.fromEntries(productos.map((p) => [p.id, 0])));
         setLecturaInicial("");
         setLecturaFinal("");
@@ -149,6 +177,76 @@ export function FormFisico({ productos }: FormFisicoProps) {
             </div>
           ) : (
             <>
+              {/* Cliente */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Cliente</label>
+                {clienteId ? (
+                  <div className="flex items-center justify-between p-3 bg-sky-50 rounded-lg border border-sky-100">
+                    <div>
+                      <p className="text-sm font-medium">{clienteNombre}</p>
+                      {clienteId === PUBLICO_EN_GENERAL_ID && (
+                        <p className="text-xs text-muted-foreground">Cliente predeterminado</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (clienteId === PUBLICO_EN_GENERAL_ID) {
+                          setClienteId("");
+                          setClienteNombre("");
+                        } else {
+                          setClienteId(PUBLICO_EN_GENERAL_ID);
+                          setClienteNombre("Público en general");
+                        }
+                        setClienteSearch("");
+                      }}
+                      className="text-xs text-sky-600 hover:text-sky-700"
+                    >
+                      {clienteId === PUBLICO_EN_GENERAL_ID ? "Buscar cliente" : "Cambiar"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={clienteSearch}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      placeholder="Buscar cliente por nombre..."
+                      className="w-full h-11 md:h-10 px-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                    />
+                    <button
+                      onClick={() => {
+                        setClienteId(PUBLICO_EN_GENERAL_ID);
+                        setClienteNombre("Público en general");
+                        setClienteSearch("");
+                        setClientesFiltrados([]);
+                      }}
+                      className="mt-2 text-xs text-sky-600 hover:text-sky-700"
+                    >
+                      ← Usar Público en general
+                    </button>
+                    {clientesFiltrados.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-10 max-h-48 overflow-auto">
+                        {clientesFiltrados.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              setClienteId(c.id);
+                              setClienteNombre(c.nombre);
+                              setClienteSearch("");
+                              setClientesFiltrados([]);
+                            }}
+                            className="w-full text-left px-3 py-3 md:py-2 hover:bg-muted/50 transition-colors"
+                          >
+                            <p className="text-sm font-medium">{c.nombre}</p>
+                            <p className="text-xs text-muted-foreground">{c.colonia}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Turno */}
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Turno</label>
