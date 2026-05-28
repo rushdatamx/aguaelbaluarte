@@ -20,6 +20,20 @@ export async function buscarClientes(query: string) {
   return data;
 }
 
+export async function listarClientes() {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("clientes")
+    .select("id, nombre, telefono, direccion, colonia")
+    .eq("activo", true)
+    .neq("id", PUBLICO_EN_GENERAL_ID)
+    .order("nombre");
+
+  if (error) return [];
+  return data;
+}
+
 export async function crearCliente(input: {
   nombre: string;
   telefono?: string;
