@@ -5,7 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ChevronRight, Menu, LogOut } from "lucide-react";
+import {
+  ChevronRight,
+  Menu,
+  LogOut,
+  LayoutDashboard,
+  Truck,
+  ShoppingCart,
+  ClipboardList,
+  Users,
+} from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -23,9 +32,40 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-interface AppSidebarProps {
-  navigation: NavItem[];
-}
+const navigation: NavItem[] = [
+  {
+    name: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
+    description: "KPIs e ingresos del dia",
+    adminOnly: true,
+  },
+  {
+    name: "Ventas Domicilio",
+    href: "/ventas-domicilio",
+    icon: Truck,
+    description: "Entregas a domicilio",
+  },
+  {
+    name: "Ventas Fisico",
+    href: "/ventas",
+    icon: ShoppingCart,
+    description: "Ventas en punto de venta",
+  },
+  {
+    name: "Ventas",
+    href: "/todas-ventas",
+    icon: ClipboardList,
+    description: "Consulta y filtra ventas",
+    adminOnly: true,
+  },
+  {
+    name: "Clientes",
+    href: "/clientes",
+    icon: Users,
+    description: "Base de clientes",
+  },
+];
 
 function SidebarContent({
   navigation,
@@ -106,7 +146,7 @@ function SidebarContent({
   );
 }
 
-export function AppSidebar({ navigation }: AppSidebarProps) {
+export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
