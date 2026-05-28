@@ -19,6 +19,8 @@ import {
   CreditCard,
   ArrowRightLeft,
   Banknote,
+  Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -35,6 +37,38 @@ interface VentaDisplay {
   metodo_pago: string;
   fuente: string;
   fecha_venta: string;
+  evidencia_url: string | null;
+}
+
+function VerEvidenciaButton({ path }: { path: string }) {
+  const [loading, setLoading] = useState(false);
+
+  const abrir = async () => {
+    setLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.storage
+      .from("evidencias")
+      .createSignedUrl(path, 60 * 10);
+    setLoading(false);
+    if (error || !data) {
+      alert("No se pudo cargar la foto: " + (error?.message || "error desconocido"));
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={abrir}
+      disabled={loading}
+      className="h-8 w-8 flex items-center justify-center rounded-md border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-40"
+      aria-label="Ver evidencia"
+      title="Ver evidencia"
+    >
+      {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+    </button>
+  );
 }
 
 function getHoy() {
@@ -77,6 +111,7 @@ export function VentasList() {
         metodo_pago,
         monto_total,
         fecha_venta,
+        evidencia_url,
         clientes(nombre, colonia),
         venta_items(cantidad, productos(nombre, unidad))
       `)
@@ -131,6 +166,7 @@ export function VentasList() {
           metodo_pago: v.metodo_pago as string,
           fuente: v.fuente as string,
           fecha_venta: v.fecha_venta as string,
+          evidencia_url: (v.evidencia_url as string | null) ?? null,
         };
       });
 
@@ -332,6 +368,7 @@ export function VentasList() {
                       <TableHead>Pago</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Fuente</TableHead>
+                      <TableHead className="w-[60px] text-center">Foto</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -380,6 +417,15 @@ export function VentasList() {
                           <Badge variant="outline" className="text-[11px]">
                             {venta.fuente === "domicilio" ? "Domicilio" : "Fisico"}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {venta.evidencia_url ? (
+                            <div className="flex justify-center">
+                              <VerEvidenciaButton path={venta.evidencia_url} />
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground/40">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -430,6 +476,9 @@ export function VentasList() {
                       <Badge variant="outline" className="text-[11px]">
                         {venta.fuente === "domicilio" ? "Domicilio" : "Fisico"}
                       </Badge>
+                      {venta.evidencia_url && (
+                        <VerEvidenciaButton path={venta.evidencia_url} />
+                      )}
                     </div>
                   </div>
                 ))}

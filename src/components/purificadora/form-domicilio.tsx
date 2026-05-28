@@ -5,13 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Truck,
   CheckCircle2,
-  Camera,
-  ImageIcon,
   Minus,
   Plus,
 } from "lucide-react";
 import { registrarVenta } from "@/lib/actions/ventas";
 import { ClienteCombobox } from "@/components/purificadora/cliente-combobox";
+import { EvidenciaUpload } from "@/components/purificadora/evidencia-upload";
 import type { Producto } from "@/lib/types";
 
 interface FormDomicilioProps {
@@ -271,30 +270,7 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
               {/* Evidencia */}
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Evidencia</label>
-                {evidencia ? (
-                  <div className="relative rounded-lg border border-border overflow-hidden">
-                    <div className="h-32 bg-neutral-100 flex items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-neutral-400" />
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-muted/30">
-                      <span className="text-xs text-muted-foreground truncate">{evidencia}</span>
-                      <button
-                        onClick={() => setEvidencia(null)}
-                        className="text-xs text-red-500 hover:text-red-600 shrink-0 ml-2"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setEvidencia("evidencia_venta_" + Date.now() + ".jpg")}
-                    className="w-full py-3 rounded-lg border border-dashed border-border hover:border-sky-300 hover:bg-sky-50/50 transition-colors flex items-center justify-center gap-2 text-sm text-muted-foreground"
-                  >
-                    <Camera className="h-4 w-4" />
-                    Adjuntar Evidencia
-                  </button>
-                )}
+                <EvidenciaUpload value={evidencia} onChange={setEvidencia} />
               </div>
 
               {/* Total */}
