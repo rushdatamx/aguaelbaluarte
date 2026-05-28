@@ -18,13 +18,18 @@ export async function actualizarProducto(input: {
     return { error: "Nada que actualizar" };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("productos")
     .update(update)
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .select("id");
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (!data || data.length === 0) {
+    return { error: "No tienes permisos para modificar productos" };
   }
 
   revalidatePath("/productos");
