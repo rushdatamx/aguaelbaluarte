@@ -33,6 +33,7 @@ export function FormFisico({ productos }: FormFisicoProps) {
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [estadoPago, setEstadoPago] = useState("pagado");
   const [evidencia, setEvidencia] = useState<string | null>(null);
+  const [notas, setNotas] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
@@ -85,6 +86,7 @@ export function FormFisico({ productos }: FormFisicoProps) {
         lectura_inicial: lecturaInicialNum || null,
         lectura_final: lecturaFinalNum || null,
         evidencia_url: evidencia,
+        notas: notas || null,
         items,
       });
 
@@ -103,6 +105,7 @@ export function FormFisico({ productos }: FormFisicoProps) {
         setLecturaFinal("");
         setEstadoPago("pagado");
         setEvidencia(null);
+        setNotas("");
       }, 2000);
     });
   };
@@ -409,6 +412,21 @@ export function FormFisico({ productos }: FormFisicoProps) {
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">Evidencia</label>
                 <EvidenciaUpload value={evidencia} onChange={setEvidencia} />
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">
+                  Notas <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+                </label>
+                <textarea
+                  value={notas}
+                  onChange={(e) => setNotas(e.target.value)}
+                  placeholder="Ej. Cliente pidió cambio, falta firma..."
+                  rows={2}
+                  maxLength={500}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 resize-none"
+                />
               </div>
 
               {/* Total */}

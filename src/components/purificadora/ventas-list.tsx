@@ -21,6 +21,8 @@ import {
   Banknote,
   Image as ImageIcon,
   Loader2,
+  MessageSquareText,
+  Download,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -38,6 +40,48 @@ interface VentaDisplay {
   fuente: string;
   fecha_venta: string;
   evidencia_url: string | null;
+  notas: string | null;
+}
+
+function NotaButton({ nota, numero }: { nota: string; numero: number }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="h-8 w-8 flex items-center justify-center rounded-md border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+        aria-label="Ver nota"
+        title="Ver nota"
+      >
+        <MessageSquareText className="h-3.5 w-3.5" />
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-background rounded-lg border border-border shadow-xl max-w-sm w-full p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <MessageSquareText className="h-4 w-4 text-amber-600" />
+              <h3 className="text-sm font-semibold">Nota de venta #{numero}</h3>
+            </div>
+            <p className="text-sm text-foreground whitespace-pre-wrap break-words">{nota}</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="mt-4 w-full h-10 rounded-md bg-sky-500 text-white text-sm font-medium hover:bg-sky-600 transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
 
 function VerEvidenciaButton({ path }: { path: string }) {
@@ -96,6 +140,7 @@ export function VentasList() {
   const [filtroEstadoPago, setFiltroEstadoPago] = useState("todos");
   const [filtroFuente, setFiltroFuente] = useState("todos");
   const [loading, setLoading] = useState(true);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const fetchVentas = useCallback(async () => {
     setLoading(true);
@@ -112,6 +157,7 @@ export function VentasList() {
         monto_total,
         fecha_venta,
         evidencia_url,
+        notas,
         clientes(nombre, colonia),
         venta_items(cantidad, productos(nombre, unidad))
       `)
@@ -167,6 +213,7 @@ export function VentasList() {
           fuente: v.fuente as string,
           fecha_venta: v.fecha_venta as string,
           evidencia_url: (v.evidencia_url as string | null) ?? null,
+          notas: (v.notas as string | null) ?? null,
         };
       });
 
@@ -195,6 +242,138 @@ export function VentasList() {
     fetchVentas();
   }, [fetchVentas]);
 
+  const exportarCSV = async () => {
+    setExportLoading(true);
+    const supabase = createClient();
+
+    let query = supabase
+      .from("ventas")
+      .select(`
+        numero_venta,
+        fecha_venta,
+        fuente,
+        turno,
+        estado_pago,
+        metodo_pago,
+        monto_total,
+        notas,
+        clientes(nombre, colonia, direccion, telefono),
+        venta_items(cantidad, precio_unitario, monto_total, productos(nombre, unidad))
+      `)
+      .neq("estado", "cancelado")
+      .order("numero_venta", { ascending: true })
+      .limit(2000);
+
+    if (periodo === "hoy") query = query.eq("fecha_venta", getHoy());
+    else if (periodo === "semana") query = query.gte("fecha_venta", getInicioSemana());
+    else if (periodo === "mes") query = query.gte("fecha_venta", getInicioMes());
+
+    if (filtroPago !== "todos") query = query.eq("metodo_pago", filtroPago);
+    if (filtroEstadoPago !== "todos") query = query.eq("estado_pago", filtroEstadoPago);
+    if (filtroFuente !== "todos") query = query.eq("fuente", filtroFuente);
+
+    const { data, error } = await query;
+    if (error || !data) {
+      alert("No se pudo exportar: " + (error?.message || "sin datos"));
+      setExportLoading(false);
+      return;
+    }
+
+    const escape = (val: unknown): string => {
+      if (val === null || val === undefined) return "";
+      const s = String(val);
+      if (s.includes('"') || s.includes(",") || s.includes("\n") || s.includes("\r")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+
+    const headers = [
+      "# Venta",
+      "Fecha",
+      "Fuente",
+      "Turno",
+      "Cliente",
+      "Colonia",
+      "Direccion",
+      "Telefono",
+      "Producto",
+      "Cantidad",
+      "Unidad",
+      "Precio unitario",
+      "Subtotal item",
+      "Monto total venta",
+      "Metodo pago",
+      "Estado pago",
+      "Notas",
+    ];
+
+    const rows: string[] = [headers.map(escape).join(",")];
+
+    // Filtro client-side por search (para consistencia con la vista)
+    const q = search.trim().toLowerCase();
+
+    for (const v of data as unknown as Array<{
+      numero_venta: number;
+      fecha_venta: string;
+      fuente: string;
+      turno: string | null;
+      estado_pago: string;
+      metodo_pago: string;
+      monto_total: number;
+      notas: string | null;
+      clientes: { nombre: string; colonia: string | null; direccion: string | null; telefono: string | null } | null;
+      venta_items: { cantidad: number; precio_unitario: number; monto_total: number; productos: { nombre: string; unidad: string } | null }[];
+    }>) {
+      const cliente = v.clientes;
+      const items = v.venta_items || [];
+
+      const matchesSearch = !q || (
+        (cliente?.nombre || "").toLowerCase().includes(q) ||
+        (cliente?.colonia || "").toLowerCase().includes(q) ||
+        String(v.numero_venta).includes(q) ||
+        items.some((it) => (it.productos?.nombre || "").toLowerCase().includes(q))
+      );
+      if (!matchesSearch) continue;
+
+      for (const it of items) {
+        rows.push([
+          v.numero_venta,
+          v.fecha_venta,
+          v.fuente === "domicilio" ? "Domicilio" : "Físico",
+          v.turno || "",
+          cliente?.nombre || "",
+          cliente?.colonia || "",
+          cliente?.direccion || "",
+          cliente?.telefono || "",
+          it.productos?.nombre || "",
+          it.cantidad,
+          it.productos?.unidad || "",
+          Number(it.precio_unitario).toFixed(2),
+          Number(it.monto_total).toFixed(2),
+          Number(v.monto_total).toFixed(2),
+          v.metodo_pago === "efectivo" ? "Efectivo" : v.metodo_pago === "transferencia" ? "Transferencia" : "Crédito",
+          v.estado_pago === "pagado" ? "Pagado" : "No Pagado",
+          v.notas || "",
+        ].map(escape).join(","));
+      }
+    }
+
+    // BOM UTF-8 para que Excel detecte acentos correctamente
+    const csv = "﻿" + rows.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fecha = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `ventas-baluarte-${periodo}-${fecha}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setExportLoading(false);
+  };
+
   // Summary
   const totalMonto = ventas.reduce((s, v) => s + v.monto_total, 0);
   const totalEfectivo = ventas.filter((v) => v.metodo_pago === "efectivo").reduce((s, v) => s + v.monto_total, 0);
@@ -206,11 +385,26 @@ export function VentasList() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Consulta y filtra todas las ventas registradas
-        </p>
+      <div className="mb-4 md:mb-6 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Ventas</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Consulta y filtra todas las ventas registradas
+          </p>
+        </div>
+        <button
+          onClick={exportarCSV}
+          disabled={exportLoading || ventas.length === 0}
+          className="h-11 md:h-10 px-4 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 transition-colors flex items-center gap-2 shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {exportLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          <span className="hidden md:inline">Exportar CSV</span>
+          <span className="md:hidden">CSV</span>
+        </button>
       </div>
 
       {/* Resumen */}
@@ -368,7 +562,7 @@ export function VentasList() {
                       <TableHead>Pago</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Fuente</TableHead>
-                      <TableHead className="w-[60px] text-center">Foto</TableHead>
+                      <TableHead className="w-[80px] text-center">Adj.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -419,13 +613,17 @@ export function VentasList() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
-                          {venta.evidencia_url ? (
-                            <div className="flex justify-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {venta.evidencia_url && (
                               <VerEvidenciaButton path={venta.evidencia_url} />
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground/40">—</span>
-                          )}
+                            )}
+                            {venta.notas && (
+                              <NotaButton nota={venta.notas} numero={venta.numero_venta} />
+                            )}
+                            {!venta.evidencia_url && !venta.notas && (
+                              <span className="text-xs text-muted-foreground/40">—</span>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -478,6 +676,9 @@ export function VentasList() {
                       </Badge>
                       {venta.evidencia_url && (
                         <VerEvidenciaButton path={venta.evidencia_url} />
+                      )}
+                      {venta.notas && (
+                        <NotaButton nota={venta.notas} numero={venta.numero_venta} />
                       )}
                     </div>
                   </div>

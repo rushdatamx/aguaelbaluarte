@@ -43,6 +43,7 @@ export interface VentaInput {
   lectura_inicial?: number | null;
   lectura_final?: number | null;
   evidencia_url?: string | null;
+  notas?: string | null;
   items: VentaItemInput[];
 }
 

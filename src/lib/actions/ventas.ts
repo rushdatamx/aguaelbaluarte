@@ -34,6 +34,7 @@ export async function registrarVenta(input: VentaInput) {
       lectura_inicial: input.lectura_inicial ?? null,
       lectura_final: input.lectura_final ?? null,
       evidencia_url: input.evidencia_url || null,
+      notas: input.notas?.trim() || null,
       monto_total: montoTotal,
       created_by: user.id,
     })
