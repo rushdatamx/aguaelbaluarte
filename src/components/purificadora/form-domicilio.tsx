@@ -72,7 +72,7 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
       const result = await registrarVenta({
         cliente_id: clienteId,
         fuente: "domicilio",
-        estado: "pendiente",
+        estado: "entregado",
         estado_pago: estadoPago as "pagado" | "no_pagado",
         metodo_pago: metodoPago as "efectivo" | "transferencia",
         evidencia_url: evidencia,
