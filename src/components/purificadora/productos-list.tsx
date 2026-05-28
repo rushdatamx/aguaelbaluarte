@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Truck, ShoppingCart, Check, Loader2 } from "lucide-react";
-import { actualizarProducto } from "@/lib/actions/productos";
+import { Package, Truck, ShoppingCart, Check, Loader2, Plus, X } from "lucide-react";
+import { actualizarProducto, crearProducto } from "@/lib/actions/productos";
 import { useRouter } from "next/navigation";
 import type { Producto } from "@/lib/types";
 
@@ -17,9 +17,65 @@ export function ProductosList({ productos }: ProductosListProps) {
   const [precios, setPrecios] = useState<Record<string, string>>(
     Object.fromEntries(productos.map((p) => [p.id, p.precio.toString()]))
   );
+
+  // Sync local precio state when productos change (e.g. after creating a new product)
+  useEffect(() => {
+    setPrecios((prev) => {
+      const next = { ...prev };
+      for (const p of productos) {
+        if (!(p.id in next)) next[p.id] = p.precio.toString();
+      }
+      return next;
+    });
+  }, [productos]);
+
   const [savedId, setSavedId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  const [showForm, setShowForm] = useState(false);
+  const [newNombre, setNewNombre] = useState("");
+  const [newCanal, setNewCanal] = useState<"domicilio" | "fisico" | "ambos">("domicilio");
+  const [newPrecio, setNewPrecio] = useState("");
+  const [newUnidad, setNewUnidad] = useState("pza");
+  const [newLitros, setNewLitros] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const resetForm = () => {
+    setNewNombre("");
+    setNewCanal("domicilio");
+    setNewPrecio("");
+    setNewUnidad("pza");
+    setNewLitros("");
+  };
+
+  const handleCrear = () => {
+    const nombre = newNombre.trim();
+    const precio = parseFloat(newPrecio);
+    if (!nombre || isNaN(precio) || precio < 0) {
+      alert("Completa nombre y precio válido");
+      return;
+    }
+    const litros = newLitros.trim() === "" ? null : parseFloat(newLitros);
+    setCreating(true);
+    startTransition(async () => {
+      const result = await crearProducto({
+        nombre,
+        canal: newCanal,
+        precio,
+        unidad: newUnidad.trim() || "pza",
+        litros_por_unidad: litros !== null && !isNaN(litros) ? litros : null,
+      });
+      setCreating(false);
+      if (result.error) {
+        alert("Error: " + result.error);
+        return;
+      }
+      resetForm();
+      setShowForm(false);
+      router.refresh();
+    });
+  };
 
   const domicilio = productos.filter((p) => p.canal === "domicilio");
   const fisico = productos.filter((p) => p.canal === "fisico");
@@ -144,14 +200,131 @@ export function ProductosList({ productos }: ProductosListProps) {
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-xl md:text-2xl font-semibold text-foreground">Productos</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Edita precios y activa/desactiva productos del catálogo
-        </p>
+      <div className="mb-6 md:mb-8 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl md:text-2xl font-semibold text-foreground">Productos</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Edita precios y activa/desactiva productos del catálogo
+          </p>
+        </div>
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="h-10 px-3 md:px-4 rounded-lg bg-sky-500 text-white text-sm font-medium hover:bg-sky-600 transition-colors flex items-center gap-1.5 shrink-0"
+        >
+          {showForm ? (
+            <>
+              <X className="h-4 w-4" />
+              <span className="hidden sm:inline">Cancelar</span>
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" />
+              <span>Agregar</span>
+            </>
+          )}
+        </button>
       </div>
 
       <div className="space-y-4 md:space-y-6">
+        {/* Formulario nuevo producto */}
+        {showForm && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <Plus className="h-4 w-4 text-sky-500" />
+                Nuevo producto
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Nombre</label>
+                <input
+                  type="text"
+                  value={newNombre}
+                  onChange={(e) => setNewNombre(e.target.value)}
+                  placeholder="Ej. Botella 1.5L"
+                  className="w-full h-11 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1.5 block">Canal</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "domicilio", label: "Domicilio" },
+                    { id: "fisico", label: "Físico" },
+                    { id: "ambos", label: "Ambos" },
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setNewCanal(c.id as "domicilio" | "fisico" | "ambos")}
+                      className={`py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+                        newCanal === c.id
+                          ? "bg-sky-500 text-white border-sky-500"
+                          : "bg-background text-muted-foreground border-border hover:border-sky-200"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+                {newCanal === "ambos" && (
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Se creará en Domicilio y en Físico con el mismo precio.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Precio</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.50"
+                    value={newPrecio}
+                    onChange={(e) => setNewPrecio(e.target.value)}
+                    placeholder="0"
+                    className="w-full h-11 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Unidad</label>
+                  <input
+                    type="text"
+                    value={newUnidad}
+                    onChange={(e) => setNewUnidad(e.target.value)}
+                    placeholder="pza"
+                    className="w-full h-11 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Litros</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={newLitros}
+                    onChange={(e) => setNewLitros(e.target.value)}
+                    placeholder="opcional"
+                    className="w-full h-11 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleCrear}
+                disabled={creating}
+                className="w-full py-3 bg-sky-500 text-white rounded-lg text-sm font-bold hover:bg-sky-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+                {creating ? "Creando..." : "Crear producto"}
+              </button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Domicilio */}
         <Card>
           <CardHeader>

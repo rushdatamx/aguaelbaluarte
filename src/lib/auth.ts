@@ -4,8 +4,8 @@ import type { UserRole } from "@/lib/types";
 
 const roleLandingPath: Record<UserRole, string> = {
   admin: "/",
-  vendedor_fisico: "/ventas",
-  vendedor_domicilio: "/ventas-domicilio",
+  vendedor_fisico: "/elegir",
+  vendedor_domicilio: "/elegir",
 };
 
 export async function requireRole(allowed: UserRole[]) {

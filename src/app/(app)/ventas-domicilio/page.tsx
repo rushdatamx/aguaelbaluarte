@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth";
 import type { Producto } from "@/lib/types";
 
 export default async function VentasDomicilioPage() {
-  await requireRole(["admin", "vendedor_domicilio"]);
+  await requireRole(["admin", "vendedor_domicilio", "vendedor_fisico"]);
   const supabase = await createClient();
 
   const { data: productos } = await supabase

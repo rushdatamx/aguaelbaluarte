@@ -54,19 +54,31 @@ export function FormFisico({ productos }: FormFisicoProps) {
   }, [cantidades, productos]);
 
   const litrosRestantes = litrosDisponibles - litrosUsados;
-  const excedeLitros = litrosUsados > litrosDisponibles && litrosDisponibles > 0;
   const tieneCuentalitros = lecturaInicialNum > 0 && lecturaFinalNum > lecturaInicialNum;
 
-  const tieneProductos = Object.values(cantidades).some((c) => c > 0);
+  // Diferencia = litros disponibles vs litros vendidos
+  // positivo = faltante (vendiste menos de lo que medió el cuentalitros)
+  // negativo = excedente (vendiste más de lo que medió el cuentalitros)
+  const diferenciaLitros = tieneCuentalitros ? litrosDisponibles - litrosUsados : 0;
+  const tipoDiferencia: "ninguna" | "faltante" | "excedente" =
+    !tieneCuentalitros || litrosUsados === 0 || diferenciaLitros === 0
+      ? "ninguna"
+      : diferenciaLitros > 0
+      ? "faltante"
+      : "excedente";
 
-  const puedeAgregarProducto = (productoId: string) => {
-    if (!tieneCuentalitros) return true;
-    const producto = productos.find((p) => p.id === productoId);
-    if (!producto) return false;
-    return litrosRestantes >= (producto.litros_por_unidad || 0);
+  const tieneProductos = Object.values(cantidades).some((c) => c > 0);
+  const [showConfirmDif, setShowConfirmDif] = useState(false);
+
+  const handleClickRegistrar = () => {
+    if (tipoDiferencia !== "ninguna") {
+      setShowConfirmDif(true);
+      return;
+    }
+    ejecutarRegistro();
   };
 
-  const handleRegistrar = () => {
+  const ejecutarRegistro = () => {
     const items = productos
       .filter((p) => (cantidades[p.id] || 0) > 0)
       .map((p) => ({
@@ -74,6 +86,20 @@ export function FormFisico({ productos }: FormFisicoProps) {
         cantidad: cantidades[p.id],
         precio_unitario: p.precio,
       }));
+
+    // Si hay diferencia, autocompletar nota con el dato
+    let notasFinal = notas.trim();
+    if (tipoDiferencia !== "ninguna") {
+      const abs = Math.abs(diferenciaLitros);
+      const etiqueta = tipoDiferencia === "faltante"
+        ? `Faltante de ${abs} L`
+        : `Excedente de ${abs} L`;
+      notasFinal = notasFinal
+        ? `${etiqueta}. ${notasFinal}`
+        : etiqueta;
+    }
+
+    setShowConfirmDif(false);
 
     startTransition(async () => {
       const result = await registrarVenta({
@@ -86,7 +112,7 @@ export function FormFisico({ productos }: FormFisicoProps) {
         lectura_inicial: lecturaInicialNum || null,
         lectura_final: lecturaFinalNum || null,
         evidencia_url: evidencia,
-        notas: notas || null,
+        notas: notasFinal || null,
         items,
       });
 
@@ -112,24 +138,13 @@ export function FormFisico({ productos }: FormFisicoProps) {
 
   const updateCantidad = (productoId: string, value: string) => {
     const num = value === "" ? 0 : Math.max(0, parseInt(value) || 0);
-    const producto = productos.find((p) => p.id === productoId)!;
-    const litrosSinEste = litrosUsados - (cantidades[productoId] || 0) * (producto.litros_por_unidad || 0);
-    const litrosConNuevo = litrosSinEste + num * (producto.litros_por_unidad || 0);
-
-    if (tieneCuentalitros && litrosConNuevo > litrosDisponibles) return;
     setCantidades((prev) => ({ ...prev, [productoId]: num }));
   };
 
   const stepCantidad = (productoId: string, delta: number) => {
-    const producto = productos.find((p) => p.id === productoId)!;
-    const newCant = Math.max(0, (cantidades[productoId] || 0) + delta);
-    const litrosSinEste = litrosUsados - (cantidades[productoId] || 0) * (producto.litros_por_unidad || 0);
-    const litrosConNuevo = litrosSinEste + newCant * (producto.litros_por_unidad || 0);
-
-    if (tieneCuentalitros && litrosConNuevo > litrosDisponibles) return;
     setCantidades((prev) => ({
       ...prev,
-      [productoId]: newCant,
+      [productoId]: Math.max(0, (prev[productoId] || 0) + delta),
     }));
   };
 
@@ -234,19 +249,35 @@ export function FormFisico({ productos }: FormFisicoProps) {
                       </span>
                     </div>
                     {tieneCuentalitros && tieneProductos && (
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground">Litros restantes</span>
-                        <span className={`text-sm font-bold ${litrosRestantes > 0 ? "text-green-600" : litrosRestantes === 0 ? "text-amber-600" : "text-red-600"}`}>
-                          {litrosRestantes.toLocaleString("es-MX")} L
-                        </span>
-                      </div>
+                      <>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-muted-foreground">Litros vendidos</span>
+                          <span className="text-sm font-bold text-foreground">
+                            {litrosUsados.toLocaleString("es-MX")} L
+                          </span>
+                        </div>
+                        {tipoDiferencia !== "ninguna" && (
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs text-muted-foreground">
+                              {tipoDiferencia === "faltante" ? "Faltante" : "Excedente"}
+                            </span>
+                            <span className={`text-sm font-bold ${tipoDiferencia === "faltante" ? "text-amber-600" : "text-red-600"}`}>
+                              {Math.abs(diferenciaLitros).toLocaleString("es-MX")} L
+                            </span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
-                {excedeLitros && (
-                  <div className="flex items-center gap-1.5 mt-2 text-red-600">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    <span className="text-xs">Los litros de los productos exceden el cuentalitros</span>
+                {tipoDiferencia !== "ninguna" && (
+                  <div className={`flex items-start gap-1.5 mt-2 ${tipoDiferencia === "faltante" ? "text-amber-700" : "text-red-700"}`}>
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span className="text-xs">
+                      {tipoDiferencia === "faltante"
+                        ? `Sobran ${Math.abs(diferenciaLitros)} L del cuentalitros. Al registrar confirmaremos y se sugiere anotar el motivo.`
+                        : `Faltan ${Math.abs(diferenciaLitros)} L para cubrir lo vendido. Al registrar confirmaremos y se sugiere anotar el motivo.`}
+                    </span>
                   </div>
                 )}
               </div>
@@ -274,13 +305,12 @@ export function FormFisico({ productos }: FormFisicoProps) {
                   {productos.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
-                    const bloqueado = tieneCuentalitros && !puedeAgregarProducto(p.id) && cant === 0;
                     return (
                       <div
                         key={p.id}
                         className={`grid grid-cols-[1fr_60px_80px_80px_90px] items-center px-3 py-2.5 border-t border-border/50 transition-colors ${
                           cant > 0 ? "bg-sky-50/50" : ""
-                        } ${bloqueado ? "opacity-40" : ""}`}
+                        }`}
                       >
                         <div>
                           <span className="text-sm font-medium">{p.nombre}</span>
@@ -315,13 +345,12 @@ export function FormFisico({ productos }: FormFisicoProps) {
                   {productos.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
-                    const bloqueado = tieneCuentalitros && !puedeAgregarProducto(p.id) && cant === 0;
                     return (
                       <div
                         key={p.id}
                         className={`rounded-lg border border-border p-3 transition-colors ${
                           cant > 0 ? "bg-sky-50/50 border-sky-200" : ""
-                        } ${bloqueado ? "opacity-40" : ""}`}
+                        }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div>
@@ -343,8 +372,7 @@ export function FormFisico({ productos }: FormFisicoProps) {
                             <span className="text-lg font-bold w-8 text-center">{cant}</span>
                             <button
                               onClick={() => stepCantidad(p.id, 1)}
-                              disabled={bloqueado || (tieneCuentalitros && !puedeAgregarProducto(p.id))}
-                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-30 disabled:hover:bg-sky-50"
+                              className="h-11 w-11 flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors"
                             >
                               <Plus className="h-4 w-4" />
                             </button>
@@ -441,8 +469,8 @@ export function FormFisico({ productos }: FormFisicoProps) {
 
               {/* Boton registrar */}
               <button
-                onClick={handleRegistrar}
-                disabled={!tieneProductos || excedeLitros || isPending}
+                onClick={handleClickRegistrar}
+                disabled={!tieneProductos || isPending}
                 className="w-full py-3 bg-sky-500 text-white rounded-lg text-sm font-bold hover:bg-sky-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isPending ? "Registrando..." : "Registrar Venta"}
@@ -451,6 +479,66 @@ export function FormFisico({ productos }: FormFisicoProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de confirmación de diferencia */}
+      {showConfirmDif && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm bg-background rounded-2xl shadow-xl p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
+                tipoDiferencia === "faltante" ? "bg-amber-100" : "bg-red-100"
+              }`}>
+                <AlertTriangle className={`h-5 w-5 ${
+                  tipoDiferencia === "faltante" ? "text-amber-600" : "text-red-600"
+                }`} />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">
+                  ¿Es correcta la información?
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {tipoDiferencia === "faltante"
+                    ? `Se registrará un faltante de ${Math.abs(diferenciaLitros)} L (sobran del cuentalitros).`
+                    : `Se registrará un excedente de ${Math.abs(diferenciaLitros)} L (vendidos por encima del cuentalitros).`}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Motivo <span className="text-xs text-muted-foreground font-normal">(recomendado)</span>
+              </label>
+              <textarea
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder={tipoDiferencia === "faltante"
+                  ? "Ej. Llenado para limpieza, derrame..."
+                  : "Ej. Cuentalitros fallando, garrafón pre-cargado..."}
+                rows={3}
+                maxLength={500}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 resize-none"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowConfirmDif(false)}
+                className="flex-1 py-3 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Revisar
+              </button>
+              <button
+                onClick={ejecutarRegistro}
+                disabled={isPending}
+                className="flex-1 py-3 bg-sky-500 text-white rounded-lg text-sm font-bold hover:bg-sky-600 transition-colors disabled:opacity-40"
+              >
+                {isPending ? "Registrando..." : "Sí, registrar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

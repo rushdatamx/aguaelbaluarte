@@ -47,14 +47,14 @@ const navigation: NavItem[] = [
     href: "/ventas-domicilio",
     icon: Truck,
     description: "Entregas a domicilio",
-    roles: ["admin", "vendedor_domicilio"],
+    roles: ["admin", "vendedor_domicilio", "vendedor_fisico"],
   },
   {
     name: "Ventas Fisico",
     href: "/ventas",
     icon: ShoppingCart,
     description: "Ventas en punto de venta",
-    roles: ["admin", "vendedor_fisico"],
+    roles: ["admin", "vendedor_fisico", "vendedor_domicilio"],
   },
   {
     name: "Ventas",
