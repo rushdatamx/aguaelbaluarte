@@ -23,8 +23,10 @@ import {
   Loader2,
   MessageSquareText,
   Download,
+  Pencil,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { EditarVentaSheet } from "@/components/purificadora/editar-venta-sheet";
 
 interface VentaDisplay {
   id: string;
@@ -132,7 +134,11 @@ function getInicioMes() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-export function VentasList() {
+interface VentasListProps {
+  isAdmin?: boolean;
+}
+
+export function VentasList({ isAdmin = false }: VentasListProps) {
   const [ventas, setVentas] = useState<VentaDisplay[]>([]);
   const [search, setSearch] = useState("");
   const [periodo, setPeriodo] = useState<"hoy" | "semana" | "mes" | "todo">("hoy");
@@ -141,6 +147,13 @@ export function VentasList() {
   const [filtroFuente, setFiltroFuente] = useState("todos");
   const [loading, setLoading] = useState(true);
   const [exportLoading, setExportLoading] = useState(false);
+  const [editVentaId, setEditVentaId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const openEdit = (id: string) => {
+    setEditVentaId(id);
+    setEditOpen(true);
+  };
 
   const fetchVentas = useCallback(async () => {
     setLoading(true);
@@ -563,6 +576,7 @@ export function VentasList() {
                       <TableHead>Estado</TableHead>
                       <TableHead>Fuente</TableHead>
                       <TableHead className="w-[80px] text-center">Adj.</TableHead>
+                      {isAdmin && <TableHead className="w-[60px] text-center"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -625,6 +639,19 @@ export function VentasList() {
                             )}
                           </div>
                         </TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(venta.id)}
+                              className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors mx-auto"
+                              aria-label="Editar venta"
+                              title="Editar venta"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -680,6 +707,17 @@ export function VentasList() {
                       {venta.notas && (
                         <NotaButton nota={venta.notas} numero={venta.numero_venta} />
                       )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => openEdit(venta.id)}
+                          className="ml-auto h-8 px-2.5 flex items-center gap-1 rounded-md border border-border bg-background text-muted-foreground hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors text-[11px] font-medium"
+                          aria-label="Editar venta"
+                        >
+                          <Pencil className="h-3 w-3" />
+                          Editar
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -694,6 +732,15 @@ export function VentasList() {
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <EditarVentaSheet
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          ventaId={editVentaId}
+          onSaved={fetchVentas}
+        />
+      )}
     </div>
   );
 }

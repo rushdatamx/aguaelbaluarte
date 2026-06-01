@@ -64,3 +64,47 @@ export async function crearCliente(input: {
   revalidatePath("/clientes");
   return { success: true, cliente: data };
 }
+
+export async function actualizarCliente(input: {
+  id: string;
+  nombre: string;
+  telefono?: string;
+  direccion?: string;
+  colonia?: string;
+  referencia?: string;
+  notas?: string;
+}) {
+  const supabase = await createClient();
+
+  if (input.id === PUBLICO_EN_GENERAL_ID) {
+    return { error: "No se puede editar el cliente Público en general" };
+  }
+
+  if (!input.nombre.trim()) {
+    return { error: "El nombre es obligatorio" };
+  }
+
+  const { data, error } = await supabase
+    .from("clientes")
+    .update({
+      nombre: input.nombre.trim(),
+      telefono: input.telefono?.trim() || null,
+      direccion: input.direccion?.trim() || null,
+      colonia: input.colonia?.trim() || null,
+      referencia: input.referencia?.trim() || null,
+      notas: input.notas?.trim() || null,
+    })
+    .eq("id", input.id)
+    .select("id");
+
+  if (error) {
+    return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "No tienes permisos para editar este cliente" };
+  }
+
+  revalidatePath("/clientes");
+  revalidatePath("/todas-ventas");
+  return { success: true };
+}

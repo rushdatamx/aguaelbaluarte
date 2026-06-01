@@ -19,8 +19,8 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Search, Users, Plus, Loader2, UserPlus } from "lucide-react";
-import { crearCliente } from "@/lib/actions/clientes";
+import { Search, Users, Plus, Loader2, UserPlus, Pencil } from "lucide-react";
+import { crearCliente, actualizarCliente } from "@/lib/actions/clientes";
 import { useRouter } from "next/navigation";
 import type { ClienteStats } from "@/lib/types";
 
@@ -38,6 +38,7 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
 
   // Form state
   const [nombre, setNombre] = useState("");
@@ -55,6 +56,25 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
     setReferencia("");
     setNotas("");
     setFormError("");
+    setEditId(null);
+  };
+
+  const openEdit = (cliente: ClienteStats) => {
+    if (cliente.id === PUBLICO_EN_GENERAL_ID) return;
+    setEditId(cliente.id);
+    setNombre(cliente.nombre);
+    setTelefono(cliente.telefono || "");
+    setDireccion(cliente.direccion || "");
+    setColonia(cliente.colonia || "");
+    setReferencia(cliente.referencia || "");
+    setNotas(cliente.notas || "");
+    setFormError("");
+    setSheetOpen(true);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setSheetOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -67,14 +87,18 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
     }
 
     startTransition(async () => {
-      const result = await crearCliente({
+      const payload = {
         nombre: nombre.trim(),
         telefono: telefono.trim() || undefined,
         direccion: direccion.trim() || undefined,
         colonia: colonia.trim() || undefined,
         referencia: referencia.trim() || undefined,
         notas: notas.trim() || undefined,
-      });
+      };
+
+      const result = editId
+        ? await actualizarCliente({ id: editId, ...payload })
+        : await crearCliente(payload);
 
       if (result.error) {
         setFormError(result.error);
@@ -110,7 +134,7 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
         </div>
         {isAdmin && (
           <button
-            onClick={() => setSheetOpen(true)}
+            onClick={openCreate}
             className="h-11 md:h-10 px-4 bg-sky-500 text-white rounded-lg text-sm font-medium hover:bg-sky-600 transition-colors flex items-center gap-2 shrink-0"
           >
             <Plus className="h-4 w-4" />
@@ -150,6 +174,7 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
                   <TableHead className="text-right">Pedidos</TableHead>
                   <TableHead className="text-right">Total Gastado</TableHead>
                   <TableHead>Ultimo Pedido</TableHead>
+                  {isAdmin && <TableHead className="w-[60px] text-center"></TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -174,6 +199,21 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
                     <TableCell className="text-sm text-muted-foreground">
                       {cliente.ultimo_pedido || "-"}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-center">
+                        {cliente.id !== PUBLICO_EN_GENERAL_ID && (
+                          <button
+                            type="button"
+                            onClick={() => openEdit(cliente)}
+                            className="h-8 w-8 flex items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors mx-auto"
+                            aria-label="Editar cliente"
+                            title="Editar cliente"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -205,6 +245,16 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
                   <span>{cliente.colonia || "-"} &middot; {cliente.total_pedidos} pedidos</span>
                   <span>{cliente.ultimo_pedido || "-"}</span>
                 </div>
+                {isAdmin && cliente.id !== PUBLICO_EN_GENERAL_ID && (
+                  <button
+                    type="button"
+                    onClick={() => openEdit(cliente)}
+                    className="w-full h-9 mt-1 flex items-center justify-center gap-1.5 rounded-md border border-border bg-background text-muted-foreground hover:bg-sky-50 hover:text-sky-600 hover:border-sky-200 transition-colors text-xs font-medium"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Editar
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -228,11 +278,17 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
           <SheetHeader className="p-6 pb-4 border-b border-border">
             <SheetTitle className="flex items-center gap-2 text-base">
-              <UserPlus className="h-4 w-4 text-sky-500" />
-              Nuevo Cliente
+              {editId ? (
+                <Pencil className="h-4 w-4 text-sky-500" />
+              ) : (
+                <UserPlus className="h-4 w-4 text-sky-500" />
+              )}
+              {editId ? "Editar Cliente" : "Nuevo Cliente"}
             </SheetTitle>
             <SheetDescription className="text-xs">
-              Registra un nuevo cliente en la base de datos
+              {editId
+                ? "Actualiza los datos del cliente"
+                : "Registra un nuevo cliente en la base de datos"}
             </SheetDescription>
           </SheetHeader>
 
@@ -341,7 +397,11 @@ export function ClientesList({ clientes, totalClientes, isAdmin }: ClientesListP
               className="flex-1 h-11 bg-sky-500 text-white rounded-lg text-sm font-bold hover:bg-sky-600 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isPending ? "Guardando..." : "Crear Cliente"}
+              {isPending
+                ? "Guardando..."
+                : editId
+                  ? "Guardar Cambios"
+                  : "Crear Cliente"}
             </button>
           </div>
         </SheetContent>
