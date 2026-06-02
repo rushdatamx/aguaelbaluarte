@@ -293,6 +293,8 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
         created_at,
         fuente,
         turno,
+        lectura_inicial,
+        lectura_final,
         estado_pago,
         metodo_pago,
         monto_total,
@@ -334,6 +336,8 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
       "Hora",
       "Fuente",
       "Turno",
+      "Cuentalitros inicial",
+      "Cuentalitros final",
       "Cliente",
       "Colonia",
       "Direccion",
@@ -360,6 +364,8 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
       created_at: string;
       fuente: string;
       turno: string | null;
+      lectura_inicial: number | null;
+      lectura_final: number | null;
       estado_pago: string;
       metodo_pago: string;
       monto_total: number;
@@ -390,6 +396,8 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
           }),
           v.fuente === "domicilio" ? "Domicilio" : "Físico",
           v.turno || "",
+          v.fuente === "fisico" && v.lectura_inicial != null ? v.lectura_inicial : "",
+          v.fuente === "fisico" && v.lectura_final != null ? v.lectura_final : "",
           cliente?.nombre || "",
           cliente?.colonia || "",
           cliente?.direccion || "",
