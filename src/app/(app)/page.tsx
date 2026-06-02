@@ -108,7 +108,10 @@ export default async function DashboardPage() {
     .limit(5);
 
   // Entregas pendientes hoy (simplified "ruta activa")
-  const today = new Date().toISOString().split("T")[0];
+  // "Hoy" en hora de México (UTC-6), no en UTC del servidor.
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Monterrey",
+  }); // formato YYYY-MM-DD
   const { count: pendientesHoy } = await supabase
     .from("ventas")
     .select("id", { count: "exact", head: true })

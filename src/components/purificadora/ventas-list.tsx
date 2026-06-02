@@ -41,8 +41,22 @@ interface VentaDisplay {
   metodo_pago: string;
   fuente: string;
   fecha_venta: string;
+  created_at: string;
   evidencia_url: string | null;
   notas: string | null;
+}
+
+// Formatea un timestamp (created_at, UTC) a fecha + hora en zona México.
+// Ej: "02 jun, 7:30 p.m."
+function formatFechaHora(iso: string): string {
+  return new Date(iso).toLocaleString("es-MX", {
+    timeZone: "America/Monterrey",
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 function NotaButton({ nota, numero }: { nota: string; numero: number }) {
@@ -117,21 +131,31 @@ function VerEvidenciaButton({ path }: { path: string }) {
   );
 }
 
+// "Hoy" en hora de México (YYYY-MM-DD), independiente del timezone del navegador.
 function getHoy() {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Monterrey" });
+}
+
+// Fecha base en componentes de hora de México (año, mes, día).
+function partesHoyMexico() {
+  const s = getHoy(); // "YYYY-MM-DD"
+  const [year, month, day] = s.split("-").map(Number);
+  return { year, month, day };
 }
 
 function getInicioSemana() {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1;
-  d.setDate(d.getDate() - diff);
+  const { year, month, day } = partesHoyMexico();
+  // Usamos UTC para aritmética de fechas sin que el timezone local interfiera.
+  const d = new Date(Date.UTC(year, month - 1, day));
+  const dow = d.getUTCDay();
+  const diff = dow === 0 ? 6 : dow - 1; // lunes como inicio de semana
+  d.setUTCDate(d.getUTCDate() - diff);
   return d.toISOString().split("T")[0];
 }
 
 function getInicioMes() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  const { year, month } = partesHoyMexico();
+  return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
 interface VentasListProps {
@@ -169,6 +193,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
         metodo_pago,
         monto_total,
         fecha_venta,
+        created_at,
         evidencia_url,
         notas,
         clientes(nombre, colonia),
@@ -225,6 +250,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
           metodo_pago: v.metodo_pago as string,
           fuente: v.fuente as string,
           fecha_venta: v.fecha_venta as string,
+          created_at: v.created_at as string,
           evidencia_url: (v.evidencia_url as string | null) ?? null,
           notas: (v.notas as string | null) ?? null,
         };
@@ -264,6 +290,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
       .select(`
         numero_venta,
         fecha_venta,
+        created_at,
         fuente,
         turno,
         estado_pago,
@@ -304,6 +331,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
     const headers = [
       "# Venta",
       "Fecha",
+      "Hora",
       "Fuente",
       "Turno",
       "Cliente",
@@ -329,6 +357,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
     for (const v of data as unknown as Array<{
       numero_venta: number;
       fecha_venta: string;
+      created_at: string;
       fuente: string;
       turno: string | null;
       estado_pago: string;
@@ -353,6 +382,12 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
         rows.push([
           v.numero_venta,
           v.fecha_venta,
+          new Date(v.created_at).toLocaleTimeString("es-MX", {
+            timeZone: "America/Monterrey",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+          }),
           v.fuente === "domicilio" ? "Domicilio" : "Físico",
           v.turno || "",
           cliente?.nombre || "",
@@ -585,7 +620,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {venta.numero_venta}
                         </TableCell>
-                        <TableCell className="text-sm">{venta.fecha_venta}</TableCell>
+                        <TableCell className="text-sm whitespace-nowrap">{formatFechaHora(venta.created_at)}</TableCell>
                         <TableCell>
                           <div>
                             <p className="text-sm font-medium">{venta.cliente_nombre}</p>
@@ -677,7 +712,7 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="font-mono">#{venta.numero_venta}</span>
                       <span>&middot;</span>
-                      <span>{venta.fecha_venta}</span>
+                      <span>{formatFechaHora(venta.created_at)}</span>
                       <span>&middot;</span>
                       <span>{venta.cantidad} {venta.unidad}</span>
                     </div>
