@@ -28,14 +28,17 @@ Todo se lleva en papel (notas de remisión físicas). No hay visibilidad de vent
 | shadcn/ui | new-york style | Componentes UI (Card, Badge, Input, Table, Sheet) |
 | Recharts | 3.7.0 | Gráficas (BarChart) |
 | Lucide React | 0.563.0 | Iconos |
-| Radix UI | 1.4.3 | Primitivos accesibles |
+| Radix UI | 1.4.3 | Primitivos accesibles (paquete unificado `radix-ui`) |
+| react-day-picker | 10 | Calendario del rango de fechas del dashboard (locale es) |
+| date-fns | 4 | Dependencia de react-day-picker |
 | Plus Jakarta Sans | — | Tipografía principal |
 
 ### Arquitectura
 - **Frontend/Hosting:** Vercel + Next.js
 - **Base de datos + Auth:** Supabase (PostgreSQL + Row Level Security)
 - **Server Actions:** Para registrar ventas y buscar clientes
-- **SQL Views:** Para KPIs del dashboard (calculados server-side)
+- **SQL Views + RPCs:** Para KPIs/desglose del dashboard. El dashboard es un Server shell que monta un Client Component (`DashboardClient`) que consulta funciones RPC parametrizadas por rango desde el browser
+- **Zona horaria:** Todo cálculo de fechas en hora de México (ver sección Base de datos → Zona horaria)
 - **Roles:** Admin (acceso total) + Vendedor (solo formularios de venta + clientes)
 - **GPS:** Diferido (PAJ-Portal API pendiente)
 
@@ -53,7 +56,9 @@ purificadora-el-baluarte/
 ├── .env.local                          # NEXT_PUBLIC_SUPABASE_URL + ANON_KEY
 ├── supabase/
 │   └── migrations/
-│       └── 001_initial_schema.sql      # Schema, seed, views, RLS
+│       ├── 001_initial_schema.sql      # Schema, seed, views, RLS
+│       ├── 002_timezone_mexico.sql     # hoy_mexico(), default fecha_venta MX, corrige histórico, views con hoy_mexico()
+│       └── 003_dashboard_rediseno.sql  # RPCs por rango + views de tendencia/sparklines del dashboard
 ├── public/
 │   └── images/
 │       └── rushdata-logo.png
@@ -68,7 +73,7 @@ purificadora-el-baluarte/
 │   │       ├── layout.tsx              # Layout con sidebar + AuthProvider (Server Component)
 │   │       ├── loading.tsx             # Skeleton loading state
 │   │       ├── error.tsx               # Error boundary
-│   │       ├── page.tsx                # Dashboard (KPIs desde SQL views, admin only)
+│   │       ├── page.tsx                # Dashboard shell (Server, admin only) → DashboardClient
 │   │       ├── ventas-domicilio/
 │   │       │   └── page.tsx            # Server wrapper → FormDomicilio
 │   │       ├── ventas/
@@ -82,18 +87,30 @@ purificadora-el-baluarte/
 │   ├── components/
 │   │   ├── ui/                         # shadcn/ui components
 │   │   │   ├── card.tsx, badge.tsx, input.tsx, table.tsx, sheet.tsx
+│   │   │   ├── button.tsx, popover.tsx  # añadidos para el dashboard
+│   │   │   └── calendar.tsx            # react-day-picker (locale es) para el rango de fechas
 │   │   ├── shared/
 │   │   │   └── app-sidebar.tsx         # Sidebar con logout, roles, rutas limpias
 │   │   ├── providers/
 │   │   │   └── auth-provider.tsx       # AuthContext (id, nombre, role)
 │   │   └── purificadora/
-│   │       ├── ingresos-chart.tsx      # Gráfica de ingresos (BarChart)
+│   │       ├── ingresos-chart.tsx      # Gráfica de ingresos legacy (BarChart, ya no usada en dashboard)
 │   │       ├── form-domicilio.tsx      # Formulario entregas (Client Component)
 │   │       ├── form-fisico.tsx         # Formulario punto de venta (Client Component)
-│   │       ├── ventas-list.tsx         # Lista ventas con filtros (Client Component)
-│   │       └── clientes-list.tsx       # Lista clientes con búsqueda (Client Component)
+│   │       ├── ventas-list.tsx         # Lista ventas con filtros + export CSV (Client Component)
+│   │       ├── clientes-list.tsx       # Lista clientes con búsqueda (Client Component)
+│   │       └── dashboard/              # Dashboard rediseñado (todos Client Components)
+│   │           ├── dashboard-client.tsx    # Orquestador: estado rango/filtros + queries RPC
+│   │           ├── date-range-picker.tsx   # Presets (Hoy/Semana/Mes/Mes anterior) + calendario
+│   │           ├── filtros-sheet.tsx       # Panel lateral: filtro canal + estado de pago
+│   │           ├── kpi-card.tsx            # KPI card reutilizable con sparkline
+│   │           ├── sparkline.tsx           # Mini LineChart sin ejes
+│   │           ├── tendencia-chart.tsx     # AreaChart de ingresos 12 meses
+│   │           ├── ventas-por-producto.tsx # Toggle canal + vista Tarjetas/Tabla
+│   │           └── resumen-dia.tsx         # 4 métricas resumen del periodo
 │   └── lib/
 │       ├── utils.ts                    # clsx + tailwind-merge
+│       ├── fechas.ts                   # Helpers de fecha en zona México (getHoy, rangos, formato)
 │       ├── types.ts                    # TypeScript interfaces compartidas
 │       ├── supabase/
 │       │   ├── client.ts              # createBrowserClient()
@@ -166,13 +183,19 @@ purificadora-el-baluarte/
 ## Secciones del sistema (detalle)
 
 ### 1. Dashboard (`/`) — Admin only
-- **KPI Cards (4):** Ingresos Hoy, Ingresos del Mes (con % vs mes anterior), Entregas Hoy (completadas/total + pendientes), Clientes Activos
-  - Móvil: grid 2 columnas, textos `text-xl` | Desktop: grid 4 columnas, `text-2xl`
-- **Desglose por producto (4 cols):** Garrafón 20L, Botella 1L, Botella 500ml, Cuentalitros — cada uno muestra cantidad, unidad, monto, # ventas
-  - Móvil: grid 2 columnas | Desktop: grid 4 columnas
-- **Gráfica de ingresos 7 días:** BarChart (Recharts) con `ingresos-chart.tsx` (h-200px móvil / h-280px desktop)
-- **Ruta activa:** Tiempo, barra de progreso, monto total, nombre del repartidor, estado (En progreso/Completada/Pendiente)
-- **Últimas 5 ventas:** Cliente, producto, cantidad, monto, estado (Entregado/En camino/Asignado/Pendiente), fuente (Domicilio/Físico)
+
+Rediseñado (jun 2026) a estilo SaaS. Es un **Server shell** (`page.tsx`, solo `requireRole`) que monta `<DashboardClient>` (Client Component que orquesta todo el estado y las consultas). Patrón igual al de `ventas-list.tsx`: queries client-side con `createClient()` del browser.
+
+- **Header:** Título + `<DateRangePicker>` (rango funcional: presets Hoy/Semana/Mes/Mes anterior + calendario visual para rango personalizado) + `<FiltrosSheet>` (panel lateral con filtro de canal y estado de pago). El rango y los filtros **recargan los datos** vía RPC.
+- **KPI Cards (4):** Ingresos del periodo, Ingresos del Mes (% vs mes anterior), Entregas (completadas/total), Clientes Activos. Cada una con una **sparkline** (mini LineChart de 14 días / 12 meses). Móvil: grid 2 cols | Desktop: 4 cols.
+- **Ventas por producto:** toggle de canal (Todos / Normal=físico / Domicilio) + toggle de vista (Tarjetas / Tabla), ambos **client-side** sobre los datos de `fn_desglose_producto_canal` (trae ambos canales en una llamada). En vista "Todos", cada card muestra el desglose Normal vs Domicilio (cantidad + monto + # ventas).
+- **Tendencia 12 meses:** AreaChart (Recharts) con `tendencia-chart.tsx`. Independiente del rango/filtro (panorama histórico global).
+- **Resumen del periodo (4 métricas):** Ingresos totales, Ventas totales (pza/litro), Entregas completadas, Clientes activos.
+
+**Notas de comportamiento:**
+- KPI "Ingresos del Mes" y la tendencia 12m **no** reaccionan al rango ni al filtro de canal (son referencia histórica global). Las demás métricas sí.
+- El "mes anterior" para el % se calcula como el penúltimo punto de `v_tendencia_12_meses`.
+- Las etiquetas de mes se formatean en el cliente (`mesLabel` en `lib/fechas.ts`, locale es-MX) en vez de confiar en `to_char`.
 
 ### 2. Ventas Domicilio (`/ventas-domicilio`)
 - Formulario con búsqueda de cliente (dropdown con nombre + dirección, items `py-3` en móvil)
@@ -196,10 +219,12 @@ purificadora-el-baluarte/
 ### 4. Todas Ventas (`/todas-ventas`) — Admin only
 - **Resumen (5 cards):** Total (col-span-2 en móvil), Efectivo, Transferencia, Crédito, No Pagado (rojo si > 0)
 - **Filtros:** Periodo (Hoy/Semana/Mes/Todo con scroll horizontal + snap en móvil), búsqueda texto libre (`h-11` móvil), método de pago, estado de pago, fuente (selects `h-11` en móvil)
-- **Desktop:** Tabla con 9 columnas (#Venta, Fecha, Cliente+Colonia, Producto, Cantidad, Monto, Pago, Estado, Fuente)
-- **Móvil:** Card list — cada venta muestra nombre+monto arriba, #venta+fecha+cantidad en medio, badges abajo
+- **Desktop:** Tabla con 9 columnas (#Venta, Fecha+hora, Cliente+Colonia, Producto, Cantidad, Monto, Pago, Estado, Fuente)
+- **Móvil:** Card list — cada venta muestra nombre+monto arriba, #venta+fecha/hora+cantidad en medio, badges abajo
+- La **fecha+hora** se muestra en zona México (derivada de `created_at`, no de `fecha_venta`)
 - Muestra primeros 100 resultados con nota de filtrado
 - Badges con colores: verde (pagado), rojo (no pagado), outline (otros), mínimo `text-[11px]`
+- **Export CSV** (botón Descargar): una fila por producto, hasta 2000 ventas, BOM UTF-8 para Excel. Columnas incluyen Fecha, **Hora** (zona MX), **Cuentalitros inicial/final** (solo en físico, vacías en domicilio), datos de cliente, producto, montos, pago
 
 ### 5. Clientes (`/clientes`)
 - Header responsive: flex-col en móvil (search full-width), flex-row en desktop (search w-64)
@@ -237,12 +262,26 @@ Componente: `src/components/shared/app-sidebar.tsx`
 - `ventas` — id, numero_venta (serial), cliente_id, fuente, turno, estado, estado_pago, metodo_pago, lectura_inicial, lectura_final, evidencia_url, monto_total, fecha_venta, created_by
 - `venta_items` — id, venta_id (FK CASCADE), producto_id, cantidad, precio_unitario, monto_total
 
+### Zona horaria (importante)
+El servidor de Supabase corre en **UTC**, pero el negocio opera en **México (America/Monterrey, UTC−6)**. Migración `002` resuelve esto:
+- **`hoy_mexico()`** — función SQL `STABLE` que devuelve la fecha de hoy en hora de México. **Usar SIEMPRE en vez de `CURRENT_DATE`** en views/funciones nuevas.
+- `ventas.fecha_venta` tiene default en hora de México (no UTC).
+- En el frontend, calcular "hoy"/rangos con los helpers de `lib/fechas.ts` (zona Monterrey), nunca con `new Date().toISOString()` crudo.
+
 ### SQL Views
-- `v_dashboard_kpis` — ingresos hoy/semana/mes, mes anterior, entregas, pendientes
-- `v_ingresos_7_dias` — últimos 7 días agrupados por fecha
-- `v_desglose_hoy` — breakdown por producto (cantidad, monto, # ventas)
-- `v_desglose_mes` — breakdown por producto del mes
+- `v_dashboard_kpis` — ingresos hoy/semana/mes, mes anterior, entregas, pendientes (legacy, ya no usada por el dashboard rediseñado)
+- `v_ingresos_7_dias` — últimos 7 días agrupados por fecha (legacy)
+- `v_desglose_hoy` / `v_desglose_mes` — breakdown por producto (legacy)
 - `v_cliente_stats` — clientes con total_pedidos, total_gastado, ultimo_pedido
+- `v_tendencia_12_meses` — ingresos mensuales de los últimos 12 meses (periodo, monto, num_ventas)
+- `v_sparklines_kpi` — serie diaria de 14 días (ingresos, entregas, clientes) para las sparklines
+
+### Funciones RPC (migración 003 — usadas por el dashboard)
+Todas `STABLE SECURITY INVOKER` (respetan RLS), con `GRANT EXECUTE ... TO authenticated`:
+- `fn_kpis_rango(p_desde, p_hasta, p_canal, p_estado_pago)` — KPIs por rango + filtros
+- `fn_desglose_producto_canal(p_desde, p_hasta, p_estado_pago)` — por producto con columnas separadas fisico/domicilio
+- `fn_resumen_dia(p_desde, p_hasta, p_canal, p_estado_pago)` — totales del periodo
+- `p_canal`: 'todos'|'fisico'|'domicilio' · `p_estado_pago`: 'todos'|'pagado'|'no_pagado'
 
 ### RLS
 - Todos leen productos, clientes, ventas, venta_items
@@ -250,7 +289,12 @@ Componente: `src/components/shared/app-sidebar.tsx`
 - Solo admin modifica/elimina
 - Helper: `auth.user_role()` retorna rol del usuario autenticado
 
-### Migration: `supabase/migrations/001_initial_schema.sql`
+### Migraciones: `supabase/migrations/`
+- `001_initial_schema.sql` — schema, seed, views, RLS
+- `002_timezone_mexico.sql` — `hoy_mexico()`, default fecha_venta en MX, corrige histórico, views con `hoy_mexico()`
+- `003_dashboard_rediseno.sql` — RPCs por rango + views de tendencia/sparklines
+
+**Las migraciones se aplican manualmente** en el SQL Editor de Supabase (no hay CLI conectado). Son idempotentes (`CREATE OR REPLACE`).
 
 ## Diseño y colores
 
@@ -275,9 +319,10 @@ Componente: `src/components/shared/app-sidebar.tsx`
 ## Integraciones
 
 ### Supabase (activo)
-- PostgreSQL para almacenamiento (tablas + views)
+- PostgreSQL para almacenamiento (tablas + views + funciones RPC)
 - Auth con email/password + Row Level Security
-- Server Actions para escritura, SQL Views para lectura
+- Server Actions para escritura; SQL Views y RPCs para lectura
+- Zona horaria de México resuelta vía `hoy_mexico()` y defaults en MX (migración 002)
 
 ### Pendientes
 - **PAJ-Portal GPS API:** Rastreo en tiempo real (diferido, requiere credenciales del cliente)
