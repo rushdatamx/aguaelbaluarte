@@ -108,3 +108,60 @@ export interface Ingreso7Dias {
   dia: string;
   monto: number;
 }
+
+// ── Dashboard rediseño ──────────────────────────────────────
+
+export interface RangoFechas {
+  desde: string; // YYYY-MM-DD
+  hasta: string; // YYYY-MM-DD
+}
+
+export interface KpisRango {
+  ingresos: number;
+  num_ventas: number;
+  entregas_completadas: number;
+  entregas_total: number;
+  ventas_pza: number;
+  ventas_litros: number;
+}
+
+export interface DesgloseProductoCanal {
+  producto_id: string;
+  nombre: string;
+  unidad: string;
+  orden: number;
+  cantidad_total: number;
+  monto_total: number;
+  num_ventas_total: number;
+  cantidad_fisico: number;
+  monto_fisico: number;
+  num_ventas_fisico: number;
+  cantidad_domicilio: number;
+  monto_domicilio: number;
+  num_ventas_domicilio: number;
+}
+
+export interface TendenciaMes {
+  periodo: string; // "2026-06"
+  monto: number;
+  num_ventas: number;
+}
+
+export interface SparklinePunto {
+  fecha: string;
+  ingresos: number;
+  entregas: number;
+  clientes: number;
+}
+
+export interface ResumenDia {
+  ingresos_totales: number;
+  ventas_pza: number;
+  ventas_litros: number;
+  num_ventas: number;
+  entregas_completadas: number;
+  entregas_total: number;
+}
+
+export type CanalFiltro = "todos" | "fisico" | "domicilio";
+export type VistaProductos = "tarjetas" | "tabla";
