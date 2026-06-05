@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Truck,
@@ -13,15 +13,49 @@ import { ClienteCombobox } from "@/components/purificadora/cliente-combobox";
 import { EvidenciaUpload } from "@/components/purificadora/evidencia-upload";
 import type { Producto } from "@/lib/types";
 
+interface Asignacion {
+  cliente_id: string;
+  producto_id: string;
+}
+
 interface FormDomicilioProps {
   productos: Producto[];
+  asignaciones: Asignacion[];
 }
 
 const PUBLICO_EN_GENERAL_ID = "00000000-0000-0000-0000-000000000001";
 
-export function FormDomicilio({ productos }: FormDomicilioProps) {
+export function FormDomicilio({ productos, asignaciones }: FormDomicilioProps) {
   const [clienteId, setClienteId] = useState(PUBLICO_EN_GENERAL_ID);
   const [clienteNombre, setClienteNombre] = useState("Público en general");
+
+  // Set de productos que TIENEN al menos un cliente asignado (los demás = para todos).
+  const productosConAsignacion = useMemo(
+    () => new Set(asignaciones.map((a) => a.producto_id)),
+    [asignaciones]
+  );
+  // Mapa cliente_id -> Set<producto_id> asignados a ese cliente.
+  const asignadosPorCliente = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const a of asignaciones) {
+      if (!m.has(a.cliente_id)) m.set(a.cliente_id, new Set());
+      m.get(a.cliente_id)!.add(a.producto_id);
+    }
+    return m;
+  }, [asignaciones]);
+
+  // Productos a mostrar según el cliente elegido:
+  //  - Público en general: todos.
+  //  - Producto sin asignaciones: se ofrece a todos.
+  //  - Producto con asignaciones: solo si está asignado a ESE cliente.
+  const productosVisibles = useMemo(() => {
+    if (clienteId === PUBLICO_EN_GENERAL_ID) return productos;
+    const delCliente = asignadosPorCliente.get(clienteId);
+    return productos.filter(
+      (p) =>
+        !productosConAsignacion.has(p.id) || (delCliente?.has(p.id) ?? false)
+    );
+  }, [clienteId, productos, productosConAsignacion, asignadosPorCliente]);
   const [cantidades, setCantidades] = useState<Record<string, number>>(
     () => Object.fromEntries(productos.map((p) => [p.id, 0]))
   );
@@ -32,15 +66,17 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const montoTotal = productos.reduce(
+  // El total, "tiene productos" y los items se calculan SOLO sobre los productos
+  // visibles para el cliente elegido (evita contar cantidades de productos ocultos).
+  const montoTotal = productosVisibles.reduce(
     (sum, p) => sum + (cantidades[p.id] || 0) * p.precio,
     0
   );
 
-  const tieneProductos = Object.values(cantidades).some((c) => c > 0);
+  const tieneProductos = productosVisibles.some((p) => (cantidades[p.id] || 0) > 0);
 
   const handleRegistrar = () => {
-    const items = productos
+    const items = productosVisibles
       .filter((p) => (cantidades[p.id] || 0) > 0)
       .map((p) => ({
         producto_id: p.id,
@@ -141,7 +177,7 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
                     <span className="text-center">Cantidad</span>
                     <span className="text-right">Importe</span>
                   </div>
-                  {productos.map((p) => {
+                  {productosVisibles.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
                     return (
@@ -178,7 +214,7 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
 
                 {/* Mobile: product cards with steppers */}
                 <div className="md:hidden space-y-2">
-                  {productos.map((p) => {
+                  {productosVisibles.map((p) => {
                     const cant = cantidades[p.id] || 0;
                     const importe = cant * p.precio;
                     return (
@@ -220,6 +256,12 @@ export function FormDomicilio({ productos }: FormDomicilioProps) {
                     );
                   })}
                 </div>
+
+                {productosVisibles.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
+                    Este cliente no tiene productos asignados. Configúralos en la sección Productos.
+                  </p>
+                )}
               </div>
 
               {/* Metodo de pago */}

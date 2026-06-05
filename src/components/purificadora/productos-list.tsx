@@ -3,16 +3,24 @@
 import { useEffect, useState, useTransition } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Package, Truck, ShoppingCart, Check, Loader2, Plus, X } from "lucide-react";
+import { Package, Truck, ShoppingCart, Check, Loader2, Plus, X, Users } from "lucide-react";
 import { actualizarProducto, crearProducto } from "@/lib/actions/productos";
+import { ClientesProductoSheet } from "@/components/purificadora/clientes-producto-sheet";
 import { useRouter } from "next/navigation";
-import type { Producto } from "@/lib/types";
+import type { ProductoConClientes } from "@/lib/types";
 
-interface ProductosListProps {
-  productos: Producto[];
+interface ClienteLite {
+  id: string;
+  nombre: string;
+  colonia: string | null;
 }
 
-export function ProductosList({ productos }: ProductosListProps) {
+interface ProductosListProps {
+  productos: ProductoConClientes[];
+  clientes: ClienteLite[];
+}
+
+export function ProductosList({ productos, clientes }: ProductosListProps) {
   const router = useRouter();
   const [precios, setPrecios] = useState<Record<string, string>>(
     Object.fromEntries(productos.map((p) => [p.id, p.precio.toString()]))
@@ -32,6 +40,10 @@ export function ProductosList({ productos }: ProductosListProps) {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // Sheet de clientes por producto (canal domicilio)
+  const [clientesSheetProducto, setClientesSheetProducto] =
+    useState<ProductoConClientes | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [newNombre, setNewNombre] = useState("");
@@ -80,7 +92,7 @@ export function ProductosList({ productos }: ProductosListProps) {
   const domicilio = productos.filter((p) => p.canal === "domicilio");
   const fisico = productos.filter((p) => p.canal === "fisico");
 
-  const guardarPrecio = (producto: Producto) => {
+  const guardarPrecio = (producto: ProductoConClientes) => {
     const nuevo = parseFloat(precios[producto.id]);
     if (isNaN(nuevo) || nuevo < 0) {
       setPrecios((prev) => ({ ...prev, [producto.id]: producto.precio.toString() }));
@@ -103,7 +115,7 @@ export function ProductosList({ productos }: ProductosListProps) {
     });
   };
 
-  const toggleActivo = (producto: Producto) => {
+  const toggleActivo = (producto: ProductoConClientes) => {
     setPendingId(producto.id);
     startTransition(async () => {
       const result = await actualizarProducto({
@@ -119,15 +131,17 @@ export function ProductosList({ productos }: ProductosListProps) {
     });
   };
 
-  const renderProducto = (p: Producto) => {
+  const renderProducto = (p: ProductoConClientes) => {
     const cambio = precios[p.id] !== p.precio.toString();
     const isPending = pendingId === p.id;
     const isSaved = savedId === p.id;
+    const esDomicilio = p.canal === "domicilio";
+    const numClientes = p.cliente_ids.length;
 
     return (
       <div
         key={p.id}
-        className={`grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 p-3 md:p-4 rounded-lg border transition-colors ${
+        className={`grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 md:gap-4 p-3 md:p-4 rounded-lg border transition-colors ${
           p.activo
             ? "border-border bg-background"
             : "border-border/50 bg-muted/30 opacity-60"
@@ -149,6 +163,25 @@ export function ProductosList({ productos }: ProductosListProps) {
             )}
           </div>
         </div>
+
+        {/* Clientes (solo domicilio) */}
+        {esDomicilio ? (
+          <button
+            type="button"
+            onClick={() => setClientesSheetProducto(p)}
+            className={`h-10 px-3 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 border ${
+              numClientes > 0
+                ? "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
+                : "bg-background text-muted-foreground border-border hover:bg-muted"
+            }`}
+            title="Elegir a qué clientes se ofrece este producto"
+          >
+            <Users className="h-3.5 w-3.5" />
+            {numClientes > 0 ? `${numClientes} clientes` : "Todos"}
+          </button>
+        ) : (
+          <span className="hidden md:block" />
+        )}
 
         {/* Precio editable */}
         <div className="flex items-center gap-2">
@@ -364,10 +397,24 @@ export function ProductosList({ productos }: ProductosListProps) {
               <li>• Modifica el precio y haz clic fuera (o presiona Enter) para guardar</li>
               <li>• Los productos inactivos no aparecen en los formularios de venta</li>
               <li>• Los cambios de precio aplican a las ventas nuevas, no afectan ventas pasadas</li>
+              <li>• En Domicilio, usa “Clientes” para elegir a quién se le ofrece cada producto (sin marcar nadie = todos)</li>
             </ul>
           </div>
         </div>
       </div>
+
+      {clientesSheetProducto && (
+        <ClientesProductoSheet
+          open={!!clientesSheetProducto}
+          onOpenChange={(open) => {
+            if (!open) setClientesSheetProducto(null);
+          }}
+          productoId={clientesSheetProducto.id}
+          productoNombre={clientesSheetProducto.nombre}
+          clientes={clientes}
+          asignados={clientesSheetProducto.cliente_ids}
+        />
+      )}
     </div>
   );
 }

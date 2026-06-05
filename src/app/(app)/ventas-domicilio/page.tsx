@@ -7,12 +7,22 @@ export default async function VentasDomicilioPage() {
   await requireRole(["admin", "vendedor_domicilio", "vendedor_fisico"]);
   const supabase = await createClient();
 
-  const { data: productos } = await supabase
-    .from("productos")
-    .select("id, nombre, canal, precio, unidad, litros_por_unidad, orden, activo")
-    .eq("canal", "domicilio")
-    .eq("activo", true)
-    .order("orden");
+  const [productosRes, asignacionesRes] = await Promise.all([
+    supabase
+      .from("productos")
+      .select("id, nombre, canal, precio, unidad, litros_por_unidad, orden, activo")
+      .eq("canal", "domicilio")
+      .eq("activo", true)
+      .order("orden"),
+    supabase.from("cliente_productos").select("cliente_id, producto_id"),
+  ]);
 
-  return <FormDomicilio productos={(productos as Producto[]) || []} />;
+  return (
+    <FormDomicilio
+      productos={(productosRes.data as Producto[]) || []}
+      asignaciones={
+        (asignacionesRes.data as { cliente_id: string; producto_id: string }[]) || []
+      }
+    />
+  );
 }

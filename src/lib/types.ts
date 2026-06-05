@@ -12,6 +12,12 @@ export interface Producto {
   activo: boolean;
 }
 
+// Producto con la lista de clientes a los que se le ofrece (canal domicilio).
+// cliente_ids vacío = el producto se ofrece a todos los clientes.
+export interface ProductoConClientes extends Producto {
+  cliente_ids: string[];
+}
+
 export interface Cliente {
   id: string;
   nombre: string;

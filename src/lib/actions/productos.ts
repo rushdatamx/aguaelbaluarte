@@ -74,6 +74,43 @@ export async function crearProducto(input: CrearProductoInput) {
   return { success: true };
 }
 
+// Define a qué clientes se ofrece un producto (canal domicilio).
+// Reemplaza el set completo: borra las asignaciones previas e inserta las nuevas.
+// cliente_ids vacío => el producto vuelve a ofrecerse a TODOS los clientes.
+export async function setClientesDeProducto(input: {
+  producto_id: string;
+  cliente_ids: string[];
+}) {
+  const supabase = await createClient();
+
+  const { error: delError } = await supabase
+    .from("cliente_productos")
+    .delete()
+    .eq("producto_id", input.producto_id);
+
+  if (delError) {
+    return { error: delError.message };
+  }
+
+  if (input.cliente_ids.length > 0) {
+    const rows = input.cliente_ids.map((cliente_id) => ({
+      cliente_id,
+      producto_id: input.producto_id,
+    }));
+    const { error: insError } = await supabase
+      .from("cliente_productos")
+      .insert(rows);
+
+    if (insError) {
+      return { error: insError.message };
+    }
+  }
+
+  revalidatePath("/productos");
+  revalidatePath("/ventas-domicilio");
+  return { success: true };
+}
+
 export async function actualizarProducto(input: {
   id: string;
   precio?: number;
