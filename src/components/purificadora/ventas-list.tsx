@@ -384,7 +384,10 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
       );
       if (!matchesSearch) continue;
 
-      for (const it of items) {
+      // El "Monto total venta" se escribe SOLO en la primera fila de la venta;
+      // en las filas restantes de productos queda vacío para que sumar esa
+      // columna en Excel dé el total real (y no se duplique/triplique por venta).
+      items.forEach((it, idx) => {
         rows.push([
           v.numero_venta,
           v.fecha_venta,
@@ -407,12 +410,12 @@ export function VentasList({ isAdmin = false }: VentasListProps) {
           it.productos?.unidad || "",
           Number(it.precio_unitario).toFixed(2),
           Number(it.monto_total).toFixed(2),
-          Number(v.monto_total).toFixed(2),
+          idx === 0 ? Number(v.monto_total).toFixed(2) : "",
           v.metodo_pago === "efectivo" ? "Efectivo" : v.metodo_pago === "transferencia" ? "Transferencia" : "Crédito",
           v.estado_pago === "pagado" ? "Pagado" : "No Pagado",
           v.notas || "",
         ].map(escape).join(","));
-      }
+      });
     }
 
     // BOM UTF-8 para que Excel detecte acentos correctamente
