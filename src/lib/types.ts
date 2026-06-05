@@ -1,3 +1,5 @@
+export type TipoInventario = "garrafon" | "litro";
+
 export interface Producto {
   id: string;
   nombre: string;
@@ -5,6 +7,7 @@ export interface Producto {
   precio: number;
   unidad: string;
   litros_por_unidad: number | null;
+  tipo_inventario: TipoInventario | null;
   orden: number;
   activo: boolean;
 }
@@ -165,3 +168,29 @@ export interface ResumenDia {
 
 export type CanalFiltro = "todos" | "fisico" | "domicilio";
 export type VistaProductos = "tarjetas" | "tabla";
+
+// ── Inventario ──────────────────────────────────────────────
+
+export interface InventarioRow {
+  tipo: TipoInventario;
+  nombre: string;
+  stock_actual: number;
+  ultimo_costo: number;
+  cantidad_minima: number;
+  updated_at: string;
+}
+
+export type ClaseMovimiento = "compra" | "venta" | "ajuste";
+
+export interface InventarioMovimiento {
+  id: string;
+  tipo: TipoInventario;
+  clase: ClaseMovimiento;
+  cantidad: number;
+  costo_unitario: number | null;
+  costo_total: number | null;
+  venta_id: string | null;
+  motivo: string | null;
+  fecha: string;
+  created_at: string;
+}

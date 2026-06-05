@@ -8,6 +8,7 @@ function revalidarVentas() {
   revalidatePath("/");
   revalidatePath("/todas-ventas");
   revalidatePath("/clientes");
+  revalidatePath("/inventario");
 }
 
 export async function registrarVenta(input: VentaInput) {
@@ -66,6 +67,16 @@ export async function registrarVenta(input: VentaInput) {
 
   if (itemsError) {
     return { error: itemsError.message };
+  }
+
+  // Descontar inventario (garrafones/litros) según tipo_inventario de cada producto.
+  // Best-effort: si falla, la venta YA quedó registrada (es la fuente de verdad);
+  // el stock se puede reconciliar después con un ajuste.
+  const { error: invError } = await supabase.rpc("fn_inventario_aplicar_venta", {
+    p_venta_id: venta.id,
+  });
+  if (invError) {
+    console.error("Error al descontar inventario (venta " + venta.numero_venta + "):", invError.message);
   }
 
   revalidarVentas();
@@ -143,6 +154,15 @@ export async function actualizarVenta(ventaId: string, input: VentaInput) {
     return { error: itemsError.message };
   }
 
+  // Recalcular inventario tras la edición (la RPC es idempotente: revierte el
+  // descuento previo de esta venta y lo recalcula desde los items actuales).
+  const { error: invError } = await supabase.rpc("fn_inventario_aplicar_venta", {
+    p_venta_id: ventaId,
+  });
+  if (invError) {
+    console.error("Error al recalcular inventario (venta " + updated[0].numero_venta + "):", invError.message);
+  }
+
   revalidarVentas();
   return { success: true, numero_venta: updated[0].numero_venta };
 }
@@ -169,6 +189,14 @@ export async function cancelarVenta(ventaId: string) {
   }
   if (!data || data.length === 0) {
     return { error: "No tienes permisos para cancelar esta venta" };
+  }
+
+  // Devolver al inventario el stock que esta venta había descontado.
+  const { error: invError } = await supabase.rpc("fn_inventario_revertir_venta", {
+    p_venta_id: ventaId,
+  });
+  if (invError) {
+    console.error("Error al revertir inventario (cancelación):", invError.message);
   }
 
   revalidarVentas();

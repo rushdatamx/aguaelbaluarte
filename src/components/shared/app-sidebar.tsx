@@ -15,6 +15,7 @@ import {
   ClipboardList,
   Users,
   Package,
+  Boxes,
 } from "lucide-react";
 import {
   Sheet,
@@ -75,6 +76,13 @@ const navigation: NavItem[] = [
     href: "/productos",
     icon: Package,
     description: "Editar precios y catalogo",
+    roles: ["admin"],
+  },
+  {
+    name: "Inventario",
+    href: "/inventario",
+    icon: Boxes,
+    description: "Stock, costo y movimientos",
     roles: ["admin"],
   },
 ];
