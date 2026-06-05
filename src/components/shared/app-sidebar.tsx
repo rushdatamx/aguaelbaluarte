@@ -16,6 +16,7 @@ import {
   Users,
   Package,
   Boxes,
+  Receipt,
 } from "lucide-react";
 import {
   Sheet,
@@ -69,6 +70,13 @@ const navigation: NavItem[] = [
     href: "/clientes",
     icon: Users,
     description: "Base de clientes",
+    roles: ["admin", "vendedor_fisico", "vendedor_domicilio"],
+  },
+  {
+    name: "Gastos",
+    href: "/gastos",
+    icon: Receipt,
+    description: "Registrar y consultar gastos",
     roles: ["admin", "vendedor_fisico", "vendedor_domicilio"],
   },
   {

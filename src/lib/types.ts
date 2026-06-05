@@ -169,6 +169,30 @@ export interface ResumenDia {
 export type CanalFiltro = "todos" | "fisico" | "domicilio";
 export type VistaProductos = "tarjetas" | "tabla";
 
+// ── Gastos ──────────────────────────────────────────────────
+
+export interface GastoInput {
+  concepto: string;
+  monto: number;
+  metodo_pago: "efectivo" | "transferencia";
+  evidencia_url?: string | null;
+  notas?: string | null;
+  fecha?: string | null; // YYYY-MM-DD; null => hoy MX (default SQL)
+}
+
+export interface GastoRow {
+  id: string;
+  numero_gasto: number;
+  concepto: string;
+  monto: number;
+  metodo_pago: string;
+  evidencia_url: string | null;
+  notas: string | null;
+  estado: string;
+  fecha: string;
+  created_at: string;
+}
+
 // ── Inventario ──────────────────────────────────────────────
 
 export interface InventarioRow {
