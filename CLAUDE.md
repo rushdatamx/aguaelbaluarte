@@ -4,14 +4,14 @@
 
 Sistema de gestión de ventas y entregas para **Purificadora El Baluarte**, una purificadora de agua en Monterrey, NL. El sistema tiene dos canales de registro de ventas (Domicilio para entregas, Físico para punto de venta), un dashboard con KPIs, y un historial completo de ventas filtrable.
 
-**Estado actual:** Producción con Supabase (PostgreSQL + Auth). GPS diferido.
+**Estado actual:** Producción con Supabase (PostgreSQL + Auth). Módulo de inventario activo (garrafón/litro con descuento automático). GPS diferido.
 
 ### Cliente
 - **Negocio:** Purificadora de agua con entregas a domicilio y ventas en punto de venta
 - **Repartidor:** Hace ~30 entregas/día en camioneta (Chevrolet NP300 2021)
 - **Administradora:** Registra ventas físicas y supervisa operación desde el dashboard
 - **GPS:** PAJ Vehicle Finder 4G instalado en la camioneta
-- **Usuarios del sistema:** 1 Admin (acceso total) + 2 Vendedores (solo registrar ventas)
+- **Usuarios del sistema:** 1 Admin (acceso total) + vendedores con rol `vendedor_fisico` o `vendedor_domicilio` (solo registrar ventas + clientes)
 
 ### Problema que resuelve
 Todo se lleva en papel (notas de remisión físicas). No hay visibilidad de ventas en tiempo real y no se sabe cuánto se vendió hasta contar efectivo. El registro de ventas se hace directamente desde la app (Ventas Domicilio y Ventas Físico).
@@ -39,7 +39,8 @@ Todo se lleva en papel (notas de remisión físicas). No hay visibilidad de vent
 - **Server Actions:** Para registrar ventas y buscar clientes
 - **SQL Views + RPCs:** Para KPIs/desglose del dashboard. El dashboard es un Server shell que monta un Client Component (`DashboardClient`) que consulta funciones RPC parametrizadas por rango desde el browser
 - **Zona horaria:** Todo cálculo de fechas en hora de México (ver sección Base de datos → Zona horaria)
-- **Roles:** Admin (acceso total) + Vendedor (solo formularios de venta + clientes)
+- **Roles (3):** `admin` (acceso total) + `vendedor_fisico` / `vendedor_domicilio` (solo formularios de venta + clientes). Los vendedores aterrizan en `/elegir`; el admin en `/`. Definidos en `src/lib/types.ts` (`UserRole`) y aplicados con `requireRole()` de `src/lib/auth.ts`.
+- **Inventario:** Módulo por tipo (garrafón / litro) con descuento automático al vender (migración 004)
 - **GPS:** Diferido (PAJ-Portal API pendiente)
 
 ## Estructura de archivos
@@ -58,7 +59,8 @@ purificadora-el-baluarte/
 │   └── migrations/
 │       ├── 001_initial_schema.sql      # Schema, seed, views, RLS
 │       ├── 002_timezone_mexico.sql     # hoy_mexico(), default fecha_venta MX, corrige histórico, views con hoy_mexico()
-│       └── 003_dashboard_rediseno.sql  # RPCs por rango + views de tendencia/sparklines del dashboard
+│       ├── 003_dashboard_rediseno.sql  # RPCs por rango + views de tendencia/sparklines del dashboard
+│       └── 004_inventario.sql          # Inventario por tipo (garrafón/litro), movimientos, RPCs de descuento
 ├── public/
 │   └── images/
 │       └── rushdata-logo.png
@@ -74,14 +76,20 @@ purificadora-el-baluarte/
 │   │       ├── loading.tsx             # Skeleton loading state
 │   │       ├── error.tsx               # Error boundary
 │   │       ├── page.tsx                # Dashboard shell (Server, admin only) → DashboardClient
+│   │       ├── elegir/
+│   │       │   └── page.tsx            # Landing de vendedores: elegir Domicilio o Físico
 │   │       ├── ventas-domicilio/
 │   │       │   └── page.tsx            # Server wrapper → FormDomicilio
 │   │       ├── ventas/
 │   │       │   └── page.tsx            # Server wrapper → FormFisico
 │   │       ├── todas-ventas/
 │   │       │   └── page.tsx            # Server wrapper → VentasList (admin only)
-│   │       └── clientes/
-│   │           └── page.tsx            # Server wrapper → ClientesList
+│   │       ├── clientes/
+│   │       │   └── page.tsx            # Server wrapper → ClientesList
+│   │       ├── productos/
+│   │       │   └── page.tsx            # Server wrapper → ProductosList (admin only)
+│   │       └── inventario/
+│   │           └── page.tsx            # Server wrapper → InventarioClient (admin only)
 │   ├── hooks/
 │   │   └── use-mobile.ts              # Hook useIsMobile (matchMedia 768px)
 │   ├── components/
@@ -98,7 +106,12 @@ purificadora-el-baluarte/
 │   │       ├── form-domicilio.tsx      # Formulario entregas (Client Component)
 │   │       ├── form-fisico.tsx         # Formulario punto de venta (Client Component)
 │   │       ├── ventas-list.tsx         # Lista ventas con filtros + export CSV (Client Component)
+│   │       ├── editar-venta-sheet.tsx  # Sheet de edición/cancelación de venta (admin)
 │   │       ├── clientes-list.tsx       # Lista clientes con búsqueda (Client Component)
+│   │       ├── productos-list.tsx      # Edición de precios/catálogo (admin)
+│   │       ├── inventario/             # Módulo de inventario (Client Components)
+│   │       │   ├── inventario-client.tsx   # Orquestador: Resumen / Movimientos / Configuración
+│   │       │   └── config-productos.tsx    # Mapear cada producto a garrafón/litro/ninguno
 │   │       └── dashboard/              # Dashboard rediseñado (todos Client Components)
 │   │           ├── dashboard-client.tsx    # Orquestador: estado rango/filtros + queries RPC
 │   │           ├── date-range-picker.tsx   # Presets (Hoy/Semana/Mes/Mes anterior) + calendario
@@ -110,6 +123,7 @@ purificadora-el-baluarte/
 │   │           └── resumen-dia.tsx         # 4 métricas resumen del periodo
 │   └── lib/
 │       ├── utils.ts                    # clsx + tailwind-merge
+│       ├── auth.ts                     # requireRole() + roleLandingPath (gating por rol)
 │       ├── fechas.ts                   # Helpers de fecha en zona México (getHoy, rangos, formato)
 │       ├── types.ts                    # TypeScript interfaces compartidas
 │       ├── supabase/
@@ -117,8 +131,9 @@ purificadora-el-baluarte/
 │       │   ├── server.ts              # createServerClient() con cookies
 │       │   └── middleware.ts           # Helper de auth para middleware
 │       └── actions/
-│           ├── ventas.ts              # registrarVenta() server action
-│           └── clientes.ts            # buscarClientes(), crearCliente() server actions
+│           ├── ventas.ts              # registrarVenta/actualizarVenta/cancelarVenta (+ descuento inventario)
+│           ├── clientes.ts            # buscarClientes(), crearCliente() server actions
+│           └── inventario.ts          # registrarCompra/registrarAjuste/setTipoInventarioProducto
 ```
 
 ## Rutas de la app
@@ -127,12 +142,16 @@ purificadora-el-baluarte/
 |---|---|---|---|
 | `/login` | `src/app/login/page.tsx` | Público | Login email/password |
 | `/` | `src/app/(app)/page.tsx` | Admin | Dashboard (KPIs, gráficas, últimas ventas) |
+| `/elegir` | `src/app/(app)/elegir/page.tsx` | Todos | Landing de vendedores: elegir Domicilio o Físico |
 | `/ventas-domicilio` | `src/app/(app)/ventas-domicilio/page.tsx` | Todos | Formulario entregas domicilio |
 | `/ventas` | `src/app/(app)/ventas/page.tsx` | Todos | Formulario punto de venta |
 | `/todas-ventas` | `src/app/(app)/todas-ventas/page.tsx` | Admin | Historial de ventas |
 | `/clientes` | `src/app/(app)/clientes/page.tsx` | Todos | Base de clientes |
+| `/productos` | `src/app/(app)/productos/page.tsx` | Admin | Editar precios y catálogo |
+| `/inventario` | `src/app/(app)/inventario/page.tsx` | Admin | Inventario: stock, costo y movimientos |
 
 **Redirects legacy:** `/demos/purificadora/*` → `/*` (301 permanent)
+**Acceso "Todos"** = admin + ambos roles de vendedor (`vendedor_fisico`, `vendedor_domicilio`).
 
 ## Productos y precios
 
@@ -233,6 +252,24 @@ Rediseñado (jun 2026) a estilo SaaS. Es un **Server shell** (`page.tsx`, solo `
 - **Móvil:** Card list — cada cliente muestra nombre+total gastado arriba, teléfono, colonia+pedidos abajo
 - Conteo de clientes activos vs total registrados
 
+### 6. Productos (`/productos`) — Admin only
+- Edición de precios y catálogo de productos (tabla `productos`), agrupado por canal
+- Server wrapper → `productos-list.tsx`
+
+### 7. Inventario (`/inventario`) — Admin only
+
+Módulo de inventario **por tipo** (no producto por producto): dos tipos, **garrafón** y **litro/botella**. Es un Server shell (`requireRole(["admin"])`) que monta `<InventarioClient>`. Tres pestañas:
+
+- **Resumen:** 2 tarjetas (Garrafones / Botellas de litro) con **stock actual**, **último costo** e **inventario a costo** (`stock × último_costo`), + tarjeta de **total a costo**. Tarjeta en **rojo** si stock < 0 o < mínimo. Botones rápidos de Compra/Ajuste por tipo.
+- **Movimientos:** historial fechado filtrable por tipo y por clase (compra/venta/ajuste). Cantidad en verde (+) / rojo (−).
+- **Configuración** (`config-productos.tsx`): el admin mapea cada producto a `garrafón`, `litro` o **No es inventario**. Los productos sin tipo (NULL) **no descuentan** stock (ej. los "Llenado de Garrafón", que son venta de agua: el cliente trae su envase).
+
+**Registrar compra/ajuste** desde un `<Sheet>`:
+- **Compra:** tipo + cantidad + costo unitario + fecha (default hoy MX). Muestra el costo total en vivo. Suma stock y **fija el último costo** (costeo a último costo de compra; el historial conserva cada compra con su fecha porque el precio es variable).
+- **Ajuste:** corrección manual (+/−) con motivo (merma, recuento).
+
+**Descuento automático:** al registrar/editar/cancelar una venta, el stock se ajusta solo (ver Base de datos → RPCs de inventario). Es *best-effort*: si el descuento falla, la venta igual se registra (es la fuente de verdad) y el stock se reconcilia con un ajuste. **El stock negativo está permitido** (no bloquea ventas).
+
 ## Sidebar / Navegación
 
 Componente: `src/components/shared/app-sidebar.tsx`
@@ -244,6 +281,8 @@ Componente: `src/components/shared/app-sidebar.tsx`
 | Ventas Físico | ShoppingCart | `/ventas` | No |
 | Ventas | ClipboardList | `/todas-ventas` | Sí |
 | Clientes | Users | `/clientes` | No |
+| Productos | Package | `/productos` | Sí |
+| Inventario | Boxes | `/inventario` | Sí |
 
 - Logo RushData arriba
 - Highlight de página activa con `bg-accent` + `ChevronRight`
@@ -256,11 +295,13 @@ Componente: `src/components/shared/app-sidebar.tsx`
 ## Base de datos (Supabase PostgreSQL)
 
 ### Tablas
-- `user_profiles` — id (FK auth.users), nombre, role (admin/vendedor), activo
-- `productos` — id (text slug), nombre, canal (domicilio/fisico), precio, unidad, litros_por_unidad, orden, activo
+- `user_profiles` — id (FK auth.users), nombre, role (admin/vendedor_fisico/vendedor_domicilio), activo
+- `productos` — id (text slug), nombre, canal (domicilio/fisico), precio, unidad, litros_por_unidad, **tipo_inventario** (garrafon/litro/NULL), orden, activo
 - `clientes` — id, nombre, telefono, direccion, colonia, referencia, notas, activo
 - `ventas` — id, numero_venta (serial), cliente_id, fuente, turno, estado, estado_pago, metodo_pago, lectura_inicial, lectura_final, evidencia_url, monto_total, fecha_venta, created_by
 - `venta_items` — id, venta_id (FK CASCADE), producto_id, cantidad, precio_unitario, monto_total
+- `inventario` — tipo (PK: garrafon/litro), nombre, stock_actual, ultimo_costo, cantidad_minima, updated_at
+- `inventario_movimientos` — id, tipo, clase (compra/venta/ajuste), cantidad (+/−), costo_unitario, costo_total, venta_id (FK), motivo, fecha (default `hoy_mexico()`), created_by
 
 ### Zona horaria (importante)
 El servidor de Supabase corre en **UTC**, pero el negocio opera en **México (America/Monterrey, UTC−6)**. Migración `002` resuelve esto:
@@ -283,18 +324,27 @@ Todas `STABLE SECURITY INVOKER` (respetan RLS), con `GRANT EXECUTE ... TO authen
 - `fn_resumen_dia(p_desde, p_hasta, p_canal, p_estado_pago)` — totales del periodo
 - `p_canal`: 'todos'|'fisico'|'domicilio' · `p_estado_pago`: 'todos'|'pagado'|'no_pagado'
 
+### Funciones RPC de inventario (migración 004)
+Con `GRANT EXECUTE ... TO authenticated`:
+- `fn_inventario_compra(p_tipo, p_cantidad, p_costo_unitario, p_fecha)` — `SECURITY INVOKER`. Inserta movimiento `compra`, suma stock y fija `ultimo_costo`.
+- `fn_inventario_ajuste(p_tipo, p_cantidad, p_motivo)` — `SECURITY INVOKER`. Ajuste manual +/−.
+- `fn_inventario_aplicar_venta(p_venta_id)` — **`SECURITY DEFINER`** (`SET search_path = public`). Idempotente: revierte el descuento previo de esa venta y lo recalcula desde los `venta_items` actuales agrupando por `productos.tipo_inventario` (ignora NULL). Es DEFINER para que un **vendedor** pueda gatillar el descuento sin escritura directa sobre las tablas de inventario.
+- `fn_inventario_revertir_venta(p_venta_id)` — **`SECURITY DEFINER`**. Devuelve el stock descontado por esa venta (al cancelar).
+
 ### RLS
-- Todos leen productos, clientes, ventas, venta_items
+- Todos leen productos, clientes, ventas, venta_items, inventario, inventario_movimientos
 - Todos insertan clientes, ventas, venta_items
-- Solo admin modifica/elimina
-- Helper: `auth.user_role()` retorna rol del usuario autenticado
+- Solo admin modifica/elimina (incluye inventario e inventario_movimientos)
+- El descuento por venta entra vía `fn_inventario_aplicar_venta` (SECURITY DEFINER), por eso los vendedores no necesitan policy de escritura sobre inventario
+- Helper: **`public.user_role()`** retorna rol del usuario autenticado (¡vive en `public`, no en `auth`!)
 
 ### Migraciones: `supabase/migrations/`
 - `001_initial_schema.sql` — schema, seed, views, RLS
 - `002_timezone_mexico.sql` — `hoy_mexico()`, default fecha_venta en MX, corrige histórico, views con `hoy_mexico()`
 - `003_dashboard_rediseno.sql` — RPCs por rango + views de tendencia/sparklines
+- `004_inventario.sql` — `productos.tipo_inventario`, tablas `inventario`/`inventario_movimientos`, RPCs de inventario, RLS
 
-**Las migraciones se aplican manualmente** en el SQL Editor de Supabase (no hay CLI conectado). Son idempotentes (`CREATE OR REPLACE`).
+**Las migraciones se aplican manualmente** en el SQL Editor de Supabase (no hay CLI conectado). Son idempotentes (`CREATE OR REPLACE` / `IF NOT EXISTS`).
 
 ## Diseño y colores
 
