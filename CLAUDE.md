@@ -61,7 +61,9 @@ purificadora-el-baluarte/
 │       ├── 002_timezone_mexico.sql     # hoy_mexico(), default fecha_venta MX, corrige histórico, views con hoy_mexico()
 │       ├── 003_dashboard_rediseno.sql  # RPCs por rango + views de tendencia/sparklines del dashboard
 │       ├── 004_inventario.sql          # Inventario por tipo (garrafón/litro), movimientos, RPCs de descuento
-│       └── 005_gastos.sql              # Tabla gastos (egresos) con evidencia, notas, RLS
+│       ├── 005_gastos.sql              # Tabla gastos (egresos) con evidencia, notas, RLS
+│       ├── 006_fix_ingresos_kpi.sql    # Fix: fn_kpis_rango sumaba v.monto_total inflado (→ vi.monto_total)
+│       └── 007_cliente_productos.sql   # Tabla puente cliente↔producto (catálogo por cliente en domicilio)
 ├── public/
 │   └── images/
 │       └── rushdata-logo.png
@@ -111,7 +113,8 @@ purificadora-el-baluarte/
 │   │       ├── ventas-list.tsx         # Lista ventas con filtros + export CSV (Client Component)
 │   │       ├── editar-venta-sheet.tsx  # Sheet de edición/cancelación de venta (admin)
 │   │       ├── clientes-list.tsx       # Lista clientes con búsqueda (Client Component)
-│   │       ├── productos-list.tsx      # Edición de precios/catálogo (admin)
+│   │       ├── productos-list.tsx      # Edición de precios/catálogo + botón "Clientes" por producto (admin)
+│   │       ├── clientes-producto-sheet.tsx # Sheet: elegir a qué clientes se ofrece un producto (domicilio)
 │   │       ├── gastos-client.tsx       # Form de gasto (todos) + historial/totales (admin)
 │   │       ├── evidencia-upload.tsx    # Subida + compresión de foto al bucket evidencias (reutilizable)
 │   │       ├── cliente-combobox.tsx    # Buscador de cliente con dropdown
@@ -140,6 +143,7 @@ purificadora-el-baluarte/
 │           ├── ventas.ts              # registrarVenta/actualizarVenta/cancelarVenta (+ descuento inventario)
 │           ├── clientes.ts            # buscarClientes(), crearCliente() server actions
 │           ├── inventario.ts          # registrarCompra/registrarAjuste/setTipoInventarioProducto
+│           ├── productos.ts           # crearProducto/actualizarProducto/setClientesDeProducto
 │           └── gastos.ts              # registrarGasto/actualizarGasto/cancelarGasto
 ```
 
@@ -226,6 +230,7 @@ Rediseñado (jun 2026) a estilo SaaS. Es un **Server shell** (`page.tsx`, solo `
 
 ### 2. Ventas Domicilio (`/ventas-domicilio`)
 - Formulario con búsqueda de cliente (dropdown con nombre + dirección, items `py-3` en móvil)
+- **Catálogo por cliente:** al elegir un cliente, solo se muestran los productos que se le ofrecen (relación `cliente_productos`, ver sección 9). Reglas: producto **sin asignaciones** = visible para todos; **"Público en general"** siempre ve todos. El total y los items se calculan sobre los productos **visibles** (`productosVisibles`, `useMemo` por `clienteId`). La página trae todas las asignaciones de una vez y filtra en cliente. Si un cliente queda sin productos, muestra un aviso.
 - **Desktop:** Tabla grid de productos con cantidades editables y totales auto-calculados
 - **Móvil:** Cards de producto con botones +/- stepper (44×44px touch targets)
 - Método y estado de pago (botones `py-3` en móvil / `py-2` en desktop)
@@ -261,8 +266,10 @@ Rediseñado (jun 2026) a estilo SaaS. Es un **Server shell** (`page.tsx`, solo `
 - Conteo de clientes activos vs total registrados
 
 ### 6. Productos (`/productos`) — Admin only
-- Edición de precios y catálogo de productos (tabla `productos`), agrupado por canal
-- Server wrapper → `productos-list.tsx`
+- Edición de precios, alta y activar/desactivar productos (tabla `productos`), agrupado por canal
+- Crear producto en canal `domicilio`, `fisico` o **ambos** (`crearProducto` genera slug)
+- **Clientes por producto (solo domicilio):** cada producto de domicilio tiene un botón **"Clientes (N)"** que abre `<ClientesProductoSheet>` (checkboxes + buscador) para elegir a qué clientes se le ofrece. Guarda con `setClientesDeProducto` (reemplazo total: DELETE+INSERT). Sin clientes marcados = se ofrece a todos. Ver sección 9.
+- Server wrapper → `productos-list.tsx` (recibe `productos` con `cliente_ids[]` + lista de `clientes`)
 
 ### 7. Inventario (`/inventario`) — Admin only
 
@@ -286,6 +293,15 @@ Apartado de **egresos**, estilo *Ventas Domicilio* (`gastos-client.tsx`, `max-w-
 - **Historial (solo admin):** debajo del formulario. 3 tarjetas de resumen (Total / Efectivo / Transferencia), filtros por periodo (Hoy/Semana/Mes/Todo) y búsqueda por concepto/#gasto. Tabla desktop + cards móvil con **ver foto** (`createSignedUrl`), **ver nota**, **editar** y **cancelar** (soft-delete `estado='cancelado'`).
 - **Server actions:** `registrarGasto` / `actualizarGasto` / `cancelarGasto` (`lib/actions/gastos.ts`).
 - **Pendiente (intención del cliente, aún no hecho):** mostrar "Gastos del periodo" y "Utilidad neta = ingresos − gastos" en el dashboard. La tabla `gastos` ya guarda `fecha` y `estado` para que el RPC sea directo.
+
+### 9. Catálogo de productos por cliente (Domicilio)
+
+Relación **muchos-a-muchos** `cliente ↔ producto` (tabla `cliente_productos`) para que cada cliente de domicilio vea solo los productos que se le ofrecen. Solo aplica al canal **domicilio**.
+
+- **Configuración:** se hace desde **Productos** (sección 6) → botón "Clientes" por producto → `<ClientesProductoSheet>`.
+- **Regla de visibilidad** (en `form-domicilio.tsx`): un producto se muestra al cliente elegido si **no tiene ninguna asignación** (→ se ofrece a todos) **o** si está asignado **a ese cliente**. **"Público en general"** siempre ve todos.
+- **Carga:** `ventas-domicilio/page.tsx` trae todas las filas de `cliente_productos` en una query y `form-domicilio` filtra client-side (sin latencia al cambiar de cliente).
+- **Adopción gradual:** como "sin asignación = todos", los clientes existentes no se rompen; se configura poco a poco.
 
 ## Sidebar / Navegación
 
@@ -321,6 +337,7 @@ Componente: `src/components/shared/app-sidebar.tsx`
 - `inventario` — tipo (PK: garrafon/litro), nombre, stock_actual, ultimo_costo, cantidad_minima, updated_at
 - `inventario_movimientos` — id, tipo, clase (compra/venta/ajuste), cantidad (+/−), costo_unitario, costo_total, venta_id (FK), motivo, fecha (default `hoy_mexico()`), created_by
 - `gastos` — id, numero_gasto (serial), concepto, monto, metodo_pago (efectivo/transferencia), evidencia_url, notas, estado (activo/cancelado), fecha (default `hoy_mexico()`), created_by
+- `cliente_productos` — tabla puente cliente↔producto (cliente_id uuid, producto_id text, PK compuesta). Define qué productos de domicilio se ofrecen a cada cliente
 
 ### Zona horaria (importante)
 El servidor de Supabase corre en **UTC**, pero el negocio opera en **México (America/Monterrey, UTC−6)**. Migración `002` resuelve esto:
@@ -338,7 +355,7 @@ El servidor de Supabase corre en **UTC**, pero el negocio opera en **México (Am
 
 ### Funciones RPC (migración 003 — usadas por el dashboard)
 Todas `STABLE SECURITY INVOKER` (respetan RLS), con `GRANT EXECUTE ... TO authenticated`:
-- `fn_kpis_rango(p_desde, p_hasta, p_canal, p_estado_pago)` — KPIs por rango + filtros
+- `fn_kpis_rango(p_desde, p_hasta, p_canal, p_estado_pago)` — KPIs por rango + filtros. **Ingresos = `SUM(vi.monto_total)`** (por item; corregido en migración 006 — antes sumaba `v.monto_total` y se inflaba al hacer JOIN con `venta_items`)
 - `fn_desglose_producto_canal(p_desde, p_hasta, p_estado_pago)` — por producto con columnas separadas fisico/domicilio
 - `fn_resumen_dia(p_desde, p_hasta, p_canal, p_estado_pago)` — totales del periodo
 - `p_canal`: 'todos'|'fisico'|'domicilio' · `p_estado_pago`: 'todos'|'pagado'|'no_pagado'
@@ -351,9 +368,9 @@ Con `GRANT EXECUTE ... TO authenticated`:
 - `fn_inventario_revertir_venta(p_venta_id)` — **`SECURITY DEFINER`**. Devuelve el stock descontado por esa venta (al cancelar).
 
 ### RLS
-- Todos leen productos, clientes, ventas, venta_items, inventario, inventario_movimientos, gastos
+- Todos leen productos, clientes, ventas, venta_items, inventario, inventario_movimientos, gastos, cliente_productos
 - Todos insertan clientes, ventas, venta_items, gastos
-- Solo admin modifica/elimina (incluye inventario, inventario_movimientos y gastos)
+- Solo admin modifica/elimina (incluye inventario, inventario_movimientos, gastos y cliente_productos)
 - El descuento por venta entra vía `fn_inventario_aplicar_venta` (SECURITY DEFINER), por eso los vendedores no necesitan policy de escritura sobre inventario
 - Helper: **`public.user_role()`** retorna rol del usuario autenticado (¡vive en `public`, no en `auth`!)
 
@@ -363,6 +380,8 @@ Con `GRANT EXECUTE ... TO authenticated`:
 - `003_dashboard_rediseno.sql` — RPCs por rango + views de tendencia/sparklines
 - `004_inventario.sql` — `productos.tipo_inventario`, tablas `inventario`/`inventario_movimientos`, RPCs de inventario, RLS
 - `005_gastos.sql` — tabla `gastos` (egresos) con evidencia/notas/soft-delete, RLS
+- `006_fix_ingresos_kpi.sql` — fix: `fn_kpis_rango` sumaba `v.monto_total` (inflado por JOIN) → ahora `vi.monto_total`
+- `007_cliente_productos.sql` — tabla puente `cliente_productos` (catálogo por cliente en domicilio), RLS
 
 **Las migraciones se aplican manualmente** en el SQL Editor de Supabase (no hay CLI conectado). Son idempotentes (`CREATE OR REPLACE` / `IF NOT EXISTS`).
 
